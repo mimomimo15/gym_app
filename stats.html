@@ -40,7 +40,7 @@
       <div class="chartbox"><canvas id="chart" role="img" aria-label="Progression du poids maximal et du 1RM estimé"></canvas></div>
       <p class="muted small" style="margin:10px 0 0">1RM estimé = poids × (1 + reps ÷ 30) (formule d'Epley), meilleur set de chaque séance.</p>
       <div class="tablewrap" style="margin-top:12px">
-        <table><thead><tr><th>Séance</th><th>Sets</th><th>Poids max</th><th>1RM estimé</th><th>Volume</th></tr></thead><tbody id="sess"></tbody></table>
+        <table class="rt"><thead><tr><th>Séance</th><th>Sets</th><th>Poids max</th><th>1RM estimé</th><th>Volume</th></tr></thead><tbody id="sess"></tbody></table>
       </div>
     </section>
 
@@ -48,7 +48,7 @@
       <h2>Records personnels</h2>
       <p class="muted small" style="margin:-4px 0 8px">Touche un exercice pour voir sa progression.</p>
       <div class="tablewrap">
-        <table><thead><tr><th>Exercice</th><th>Poids max</th><th>1RM estimé</th><th>Reps max</th><th>Volume / séance</th><th>Séances</th></tr></thead><tbody id="recs"></tbody></table>
+        <table class="rt"><thead><tr><th>Exercice</th><th>Poids max</th><th>1RM estimé</th><th>Reps max</th><th>Volume / séance</th><th>Séances</th></tr></thead><tbody id="recs"></tbody></table>
       </div>
     </section>
   </div>
@@ -97,11 +97,11 @@ function render() {
   // records
   const cell = (v, d) => v ? v + '<span class="d">' + esc(JG.fmtDate(d)) + '</span>' : '–';
   $('recs').innerHTML = recs.map(r => '<tr class="click" data-k="' + esc(r.key) + '"><td><b>' + esc(r.name) + '</b></td>' +
-    '<td>' + cell(r.maxW ? f(r.maxW) + ' ' + u + ' × ' + r.maxWReps : '', r.maxWDate) + '</td>' +
-    '<td>' + cell(r.e1rm ? f(r.e1rm) + ' ' + u : '', r.e1rmDate) + '</td>' +
-    '<td>' + cell(r.maxReps ? String(r.maxReps) : '', r.maxRepsDate) + '</td>' +
-    '<td>' + cell(r.volume ? f(r.volume) + ' ' + u : '', r.volumeDate) + '</td>' +
-    '<td>' + r.count + '</td></tr>').join('');
+    '<td data-label="Poids max">' + cell(r.maxW ? f(r.maxW) + ' ' + u + ' × ' + r.maxWReps : '', r.maxWDate) + '</td>' +
+    '<td data-label="1RM estimé">' + cell(r.e1rm ? f(r.e1rm) + ' ' + u : '', r.e1rmDate) + '</td>' +
+    '<td data-label="Reps max">' + cell(r.maxReps ? String(r.maxReps) : '', r.maxRepsDate) + '</td>' +
+    '<td data-label="Volume / séance">' + cell(r.volume ? f(r.volume) + ' ' + u : '', r.volumeDate) + '</td>' +
+    '<td data-label="Séances">' + r.count + '</td></tr>').join('');
 
   renderProgress(hist, u);
 }
@@ -120,10 +120,10 @@ function renderProgress(hist, u) {
   // tableau des séances (récentes d'abord), records en évidence
   let bestW = 0, bestE = 0; const prW = new Set(), prE = new Set();
   ss.forEach((s, i) => { if (s.maxW > bestW) { bestW = s.maxW; if (i) prW.add(i); } if (s.e1rm > bestE) { bestE = s.e1rm; if (i) prE.add(i); } });
-  $('sess').innerHTML = ss.map((s, i) => '<tr><td>' + esc(JG.fmtDate(s.date)) + '</td><td>' + esc(JG.setsSummary(s.sets, '')) + '</td>' +
-    '<td class="' + (prW.has(i) ? 'pr' : '') + '">' + (s.maxW ? f(s.maxW) + ' × ' + s.maxWReps : '–') + (prW.has(i) ? ' ★' : '') + '</td>' +
-    '<td class="' + (prE.has(i) ? 'pr' : '') + '">' + (s.e1rm ? f(s.e1rm) : '–') + (prE.has(i) ? ' ★' : '') + '</td>' +
-    '<td>' + (s.volume ? f(s.volume) : '–') + '</td></tr>').reverse().join('');
+  $('sess').innerHTML = ss.map((s, i) => '<tr><td>' + esc(JG.fmtDate(s.date)) + '</td><td class="wide">' + esc(JG.setsSummary(s.sets, '')) + '</td>' +
+    '<td data-label="Poids max" class="' + (prW.has(i) ? 'pr' : '') + '">' + (s.maxW ? f(s.maxW) + ' × ' + s.maxWReps : '–') + (prW.has(i) ? ' ★' : '') + '</td>' +
+    '<td data-label="1RM estimé" class="' + (prE.has(i) ? 'pr' : '') + '">' + (s.e1rm ? f(s.e1rm) : '–') + (prE.has(i) ? ' ★' : '') + '</td>' +
+    '<td data-label="Volume">' + (s.volume ? f(s.volume) : '–') + '</td></tr>').reverse().join('');
 
   // graphique
   if (typeof Chart === 'undefined') return;

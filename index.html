@@ -66,7 +66,7 @@
 
   <!-- Liste -->
   <section id="list-view" class="hidden">
-    <div class="row spread" style="margin-bottom:12px">
+    <div class="row spread list-top" style="margin-bottom:12px">
       <button class="btn primary" id="btn-new" type="button">＋ Nouvel entraînement</button>
       <span class="muted small" id="count"></span>
     </div>
@@ -81,7 +81,7 @@
       <div><label class="f" for="ed-name">Nom de l'entraînement</label><input id="ed-name" type="text" list="dl-names" placeholder="ex. Push, Jambes, Haut du corps" autocomplete="off"></div>
     </div>
     <div id="ed-ex"></div>
-    <div class="row" style="margin-top:12px">
+    <div class="row add-row" style="margin-top:12px">
       <button class="btn" data-add="ex" type="button">＋ Exercice</button>
       <button class="btn" data-add="warmup" type="button">＋ Échauffement</button>
       <button class="btn" data-add="stretch" type="button">＋ Étirement</button>
@@ -115,6 +115,7 @@ function render() {
   $('account').classList.toggle('hidden', !on || !showAccount || !!draft);
   $('list-view').classList.toggle('hidden', !on || !!draft);
   $('editor').classList.toggle('hidden', !on || !draft);
+  document.body.classList.toggle('editing', on && !!draft);
   $('who').textContent = on ? 'Journal de ' + JG.login() : '';
   renderSync();
   if (!on) return;
