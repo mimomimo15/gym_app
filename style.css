@@ -104,3 +104,9 @@ td .d { display: block; font-size: .72rem; color: var(--muted); }
 td.pr { color: var(--accent); font-weight: 700; }
 tr.click { cursor: pointer; }
 tr.click:hover td { background: var(--soft); }
+
+/* échauffements et étirements */
+.tag { display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+.tag.warmup { color: var(--accent); border-color: var(--accent); }
+.ex > .tag { margin-bottom: 8px; }
+.w li.extra b { font-weight: 600; }

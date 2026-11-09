@@ -192,6 +192,7 @@ const JG = (() => {
     const ws = workouts().filter(w => w.id !== excludeId).reverse();
     for (const w of ws) {
       for (const ex of w.exercises) {
+        if (ex.type && ex.type !== 'ex') continue;
         const k = key(ex.name); if (!k || !ex.sets.length) continue;
         if (!m.has(k)) m.set(k, { name: ex.name.trim(), sessions: [] });
         const h = m.get(k);

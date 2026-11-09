@@ -81,7 +81,11 @@
       <div><label class="f" for="ed-name">Nom de l'entraînement</label><input id="ed-name" type="text" list="dl-names" placeholder="ex. Push, Jambes, Haut du corps" autocomplete="off"></div>
     </div>
     <div id="ed-ex"></div>
-    <div class="row" style="margin-top:12px"><button class="btn" id="btn-add-ex" type="button">＋ Exercice</button></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" data-add="ex" type="button">＋ Exercice</button>
+      <button class="btn" data-add="warmup" type="button">＋ Échauffement</button>
+      <button class="btn" data-add="stretch" type="button">＋ Étirement</button>
+    </div>
     <div style="margin-top:14px"><label class="f" for="ed-note">Note (optionnel)</label><textarea id="ed-note" placeholder="Comment ça s'est passé ?"></textarea></div>
     <div class="err" id="ed-err"></div>
     <div class="editor-actions">
@@ -90,6 +94,8 @@
     </div>
     <datalist id="dl-names"></datalist>
     <datalist id="dl-ex"></datalist>
+    <datalist id="dl-warmup"></datalist>
+    <datalist id="dl-stretch"></datalist>
   </section>
 </div>
 
@@ -125,16 +131,27 @@ function renderSync() {
   el.className = s.state === 'error' ? 'error' : s.state === 'ok' ? 'ok' : '';
 }
 
+/* Types d'éléments d'une séance. Seuls les exercices ont des sets et comptent dans les stats. */
+const TYPES = {
+  ex: { label: 'Exercice', ph: 'Exercice (ex. Développé couché)', list: 'dl-ex' },
+  warmup: { label: 'Échauffement', ph: 'Échauffement (ex. Rameur, Corde à sauter)', list: 'dl-warmup' },
+  stretch: { label: 'Étirement', ph: 'Étirement (ex. Ischio-jambiers, Épaules)', list: 'dl-stretch' }
+};
+const isEx = ex => !ex.type || ex.type === 'ex';
 const openGroups = new Set();   // groupes dont l'historique est déplié
 
 function sessionHTML(w, u) {
   const nSets = w.exercises.reduce((a, e) => a + e.sets.length, 0), vol = JG.workoutVolume(w);
+  const nEx = w.exercises.filter(isEx).length, nWarm = w.exercises.filter(e => e.type === 'warmup').length, nStr = w.exercises.filter(e => e.type === 'stretch').length;
   return '<div class="sess">' +
     '<div class="sess-head"><span class="w-date">' + esc(JG.fmtDate(w.date, true)) + '</span>' +
     '<button class="btn small" data-act="edit" data-id="' + esc(w.id) + '">Modifier</button></div>' +
-    (w.exercises.length ? '<ul>' + w.exercises.map(ex => '<li><b>' + esc(ex.name) + '</b><span>' + esc(JG.setsSummary(ex.sets, u)) + '</span></li>').join('') + '</ul>' : '') +
+    (w.exercises.length ? '<ul>' + w.exercises.map(ex => isEx(ex)
+      ? '<li><b>' + esc(ex.name) + '</b><span>' + esc(JG.setsSummary(ex.sets, u)) + '</span></li>'
+      : '<li class="extra"><span><span class="tag ' + esc(ex.type) + '">' + TYPES[ex.type].label + '</span> <b>' + esc(ex.name) + '</b></span><span>' + esc(ex.detail || '') + '</span></li>').join('') + '</ul>' : '') +
     (w.note ? '<p class="note">' + esc(w.note) + '</p>' : '') +
-    '<footer>' + w.exercises.length + ' exercice' + (w.exercises.length > 1 ? 's' : '') + ' · ' + nSets + ' set' + (nSets > 1 ? 's' : '') +
+    '<footer>' + nEx + ' exercice' + (nEx > 1 ? 's' : '') + ' · ' + nSets + ' set' + (nSets > 1 ? 's' : '') +
+    (nWarm ? ' · ' + nWarm + ' échauffement' + (nWarm > 1 ? 's' : '') : '') + (nStr ? ' · ' + nStr + ' étirement' + (nStr > 1 ? 's' : '') : '') +
     (vol > 0 ? ' · volume ' + JG.fmtNum(vol) + ' ' + u : '') + '</footer></div>';
 }
 
@@ -165,12 +182,12 @@ function renderList() {
 
 /* ---------- éditeur ---------- */
 const blankSet = () => ({ reps: '', weight: '' });
-const blankEx = () => ({ name: '', sets: [blankSet()] });
+const blankEx = type => ({ type: type || 'ex', name: '', detail: '', sets: (type || 'ex') === 'ex' ? [blankSet()] : [] });
 
 function openEditor(w, asCopy) {
   if (w) {
     draft = { id: asCopy ? null : w.id, createdAt: asCopy ? null : w.createdAt, date: asCopy ? JG.today() : w.date, name: w.name, note: asCopy ? '' : (w.note || ''),
-      exercises: w.exercises.map(ex => ({ name: ex.name, sets: ex.sets.map(s => ({ reps: String(s.reps), weight: s.weight ? String(s.weight).replace('.', ',') : '' })) })) };
+      exercises: w.exercises.map(ex => ({ type: ex.type || 'ex', detail: ex.detail || '', name: ex.name, sets: ex.sets.map(s => ({ reps: String(s.reps), weight: s.weight ? String(s.weight).replace('.', ',') : '' })) })) };
   } else {
     draft = { id: null, date: JG.today(), name: '', note: '', exercises: [blankEx()] };
   }
@@ -180,6 +197,11 @@ function openEditor(w, asCopy) {
   const hist = JG.history();
   $('dl-ex').innerHTML = Array.from(hist.values()).sort((a, b) => b.sessions.length - a.sessions.length).map(h => '<option value="' + esc(h.name) + '">').join('');
   $('dl-names').innerHTML = Array.from(new Set(JG.workouts().map(x => x.name))).map(n => '<option value="' + esc(n) + '">').join('');
+  ['warmup', 'stretch'].forEach(t => {
+    const names = new Set();
+    JG.workouts().forEach(x => x.exercises.forEach(ex => { if (ex.type === t && ex.name) names.add(ex.name); }));
+    $('dl-' + t).innerHTML = Array.from(names).map(n => '<option value="' + esc(n) + '">').join('');
+  });
   renderExercises();
   render();
   window.scrollTo(0, 0);
@@ -194,10 +216,15 @@ function hintFor(name) {
 
 function renderExercises() {
   const u = JG.unit();
-  $('ed-ex').innerHTML = draft.exercises.map((ex, i) =>
-    '<div class="ex" data-i="' + i + '">' +
-      '<div class="ex-head"><input class="ex-name" type="text" list="dl-ex" autocomplete="off" placeholder="Exercice (ex. Développé couché)" aria-label="Nom de l\'exercice" value="' + esc(ex.name) + '">' +
-      '<button class="icon" data-act="del-ex" type="button" title="Retirer l\'exercice" aria-label="Retirer l\'exercice">✕</button></div>' +
+  $('ed-ex').innerHTML = draft.exercises.map((ex, i) => {
+    const t = TYPES[ex.type] || TYPES.ex;
+    const head = '<div class="ex ' + esc(ex.type) + '" data-i="' + i + '">' +
+      (isEx(ex) ? '' : '<div class="tag ' + esc(ex.type) + '">' + t.label + '</div>') +
+      '<div class="ex-head"><input class="ex-name" type="text" list="' + t.list + '" autocomplete="off" placeholder="' + esc(t.ph) + '" aria-label="Nom" value="' + esc(ex.name) + '">' +
+      '<button class="icon" data-act="del-ex" type="button" title="Retirer" aria-label="Retirer">✕</button></div>';
+    if (!isEx(ex)) return head +
+      '<input class="ex-detail" type="text" autocomplete="off" style="margin-top:8px" placeholder="Durée ou détails (ex. 5 min, 2 × 30 s) – optionnel" aria-label="Durée ou détails" value="' + esc(ex.detail) + '"></div>';
+    return head +
       '<div class="hint">' + esc(hintFor(ex.name)) + '</div>' +
       '<div class="set-row head"><span class="n">Set</span><span style="text-align:center">Reps</span><span style="text-align:center">Poids (' + u + ')</span><span></span></div>' +
       ex.sets.map((s, j) =>
@@ -206,13 +233,15 @@ function renderExercises() {
         '<input class="wt" type="text" inputmode="decimal" aria-label="Poids du set ' + (j + 1) + '" value="' + esc(s.weight) + '">' +
         '<button class="icon" data-act="del-set" type="button" title="Retirer le set" aria-label="Retirer le set">✕</button></div>').join('') +
       '<button class="btn small add-set" data-act="add-set" type="button">＋ Set</button>' +
-    '</div>').join('');
+    '</div>';
+  }).join('');
 }
 
 $('ed-ex').addEventListener('input', e => {
   const exEl = e.target.closest('.ex'); if (!exEl) return;
   const ex = draft.exercises[+exEl.dataset.i];
-  if (e.target.classList.contains('ex-name')) { ex.name = e.target.value; exEl.querySelector('.hint').textContent = hintFor(ex.name); return; }
+  if (e.target.classList.contains('ex-name')) { ex.name = e.target.value; const h = exEl.querySelector('.hint'); if (h) h.textContent = hintFor(ex.name); return; }
+  if (e.target.classList.contains('ex-detail')) { ex.detail = e.target.value; return; }
   const row = e.target.closest('.set-row'); if (!row) return;
   const s = ex.sets[+row.dataset.j];
   if (e.target.classList.contains('reps')) s.reps = e.target.value;
@@ -235,10 +264,10 @@ $('ed-ex').addEventListener('click', e => {
   }
 });
 
-$('btn-add-ex').addEventListener('click', () => {
-  draft.exercises.push(blankEx()); renderExercises();
+document.querySelectorAll('[data-add]').forEach(b => b.addEventListener('click', () => {
+  draft.exercises.push(blankEx(b.dataset.add)); renderExercises();
   const names = $('ed-ex').querySelectorAll('.ex-name'); names[names.length - 1].focus();
-});
+}));
 
 function collect() {
   const date = $('ed-date').value;
@@ -246,6 +275,13 @@ function collect() {
   const exercises = [];
   for (const ex of draft.exercises) {
     const name = ex.name.trim(), sets = [];
+    if (!isEx(ex)) {
+      const detail = String(ex.detail || '').trim();
+      if (!name && !detail) continue;
+      if (!name) throw new Error('Donne un nom à chaque ' + TYPES[ex.type].label.toLowerCase() + '.');
+      exercises.push({ type: ex.type, name, detail, sets: [] });
+      continue;
+    }
     for (const s of ex.sets) {
       const rs = String(s.reps).trim(), wsr = String(s.weight).trim();
       if (!rs && !wsr) continue;
@@ -259,7 +295,7 @@ function collect() {
     exercises.push({ name, sets });
   }
   const name = $('ed-name').value.trim() || 'Entraînement';
-  if (!exercises.length && !$('ed-name').value.trim()) throw new Error('Ajoute au moins un exercice ou un nom.');
+  if (!exercises.length && !$('ed-name').value.trim()) throw new Error('Ajoute au moins un élément ou un nom.');
   return { id: draft.id, createdAt: draft.createdAt, date, name, note: $('ed-note').value.trim(), exercises };
 }
 
