@@ -43,6 +43,12 @@ label.f { display: block; font-size: .8rem; font-weight: 600; color: var(--muted
 input, select, textarea { font: inherit; color: var(--text); background: var(--field); border: 1px solid var(--line); border-radius: 9px; padding: 9px 10px; width: 100%; min-height: 40px; }
 input:focus, select:focus, textarea:focus, .btn:focus-visible, .icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 textarea { min-height: 64px; resize: vertical; }
+/* iOS : le champ date a une largeur minimale propre et déborde sans ces règles */
+input[type="date"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; text-align: left; }
+input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
+.grid2 > div, .ex-head > input, .set-row > input { min-width: 0; }
+.card, .ex { min-width: 0; max-width: 100%; }
+body { overflow-x: hidden; }
 .grid2 { display: grid; grid-template-columns: 170px 1fr; gap: 10px; }
 @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
 

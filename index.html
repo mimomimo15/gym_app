@@ -78,7 +78,7 @@
     <h2 id="ed-title">Nouvel entraînement</h2>
     <div class="grid2">
       <div><label class="f" for="ed-date">Date</label><input id="ed-date" type="date"></div>
-      <div><label class="f" for="ed-name">Nom de l'entraînement</label><input id="ed-name" type="text" list="dl-names" placeholder="ex. Push, Jambes, Haut du corps" autocomplete="off"></div>
+      <div><label class="f" for="ed-name">Nom de l'entraînement</label><input id="ed-name" type="text" list="dl-names" placeholder="ex. Push, Jambes" autocomplete="off"></div>
     </div>
     <div id="ed-ex"></div>
     <div class="row add-row" style="margin-top:12px">
@@ -134,9 +134,9 @@ function renderSync() {
 
 /* Types d'éléments d'une séance. Seuls les exercices ont des sets et comptent dans les stats. */
 const TYPES = {
-  ex: { label: 'Exercice', ph: 'Exercice (ex. Développé couché)', list: 'dl-ex' },
-  warmup: { label: 'Échauffement', ph: 'Échauffement (ex. Rameur, Corde à sauter)', list: 'dl-warmup' },
-  stretch: { label: 'Étirement', ph: 'Étirement (ex. Ischio-jambiers, Épaules)', list: 'dl-stretch' }
+  ex: { label: 'Exercice', ph: 'Nom de l\'exercice', list: 'dl-ex' },
+  warmup: { label: 'Échauffement', ph: 'Nom de l\'échauffement', list: 'dl-warmup' },
+  stretch: { label: 'Étirement', ph: 'Nom de l\'étirement', list: 'dl-stretch' }
 };
 const isEx = ex => !ex.type || ex.type === 'ex';
 const openGroups = new Set();   // groupes dont l'historique est déplié
@@ -224,7 +224,7 @@ function renderExercises() {
       '<div class="ex-head"><input class="ex-name" type="text" list="' + t.list + '" autocomplete="off" placeholder="' + esc(t.ph) + '" aria-label="Nom" value="' + esc(ex.name) + '">' +
       '<button class="icon" data-act="del-ex" type="button" title="Retirer" aria-label="Retirer">✕</button></div>';
     if (!isEx(ex)) return head +
-      '<input class="ex-detail" type="text" autocomplete="off" style="margin-top:8px" placeholder="Durée ou détails (ex. 5 min, 2 × 30 s) – optionnel" aria-label="Durée ou détails" value="' + esc(ex.detail) + '"></div>';
+      '<input class="ex-detail" type="text" autocomplete="off" style="margin-top:8px" placeholder="Durée ou détails (ex. 5 min)" aria-label="Durée ou détails" value="' + esc(ex.detail) + '"></div>';
     return head +
       '<div class="hint">' + esc(hintFor(ex.name)) + '</div>' +
       '<div class="set-row head"><span class="n">Set</span><span style="text-align:center">Reps</span><span style="text-align:center">Poids (' + u + ')</span><span></span></div>' +
