@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Journal de gym</title>
+<meta name="theme-color" content="#d9480f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Journal de gym <small id="who"></small></h1>
+    <nav class="tabs">
+      <a class="btn active" href="index.html">Journal</a>
+      <a class="btn" href="stats.html">Stats</a>
+      <button class="btn hidden" id="btn-account" type="button">Compte</button>
+    </nav>
+  </header>
+  <div id="sync" role="status"></div>
+
+  <!-- Connexion -->
+  <section class="card hidden" id="setup">
+    <h2>Connecte ton journal</h2>
+    <p class="muted small">Chaque personne a son propre journal, gardé dans <b>son</b> dépôt privé GitHub. Personne d'autre ne le voit. À faire une seule fois par appareil :</p>
+    <ol class="steps">
+      <li>Crée un compte <a href="https://github.com/signup" target="_blank" rel="noopener">GitHub</a> (gratuit) si tu n'en as pas.</li>
+      <li><a href="https://github.com/new?name=journal-gym&visibility=private" target="_blank" rel="noopener">Crée un dépôt <b>privé</b></a> nommé <code>journal-gym</code> (laisse-le vide).</li>
+      <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Crée un jeton « fine-grained »</a> : <i>Repository access</i> → <i>Only select repositories</i> → <code>journal-gym</code> ; <i>Permissions</i> → <i>Contents</i> → <b>Read and write</b>. Choisis une longue expiration.</li>
+      <li>Colle le jeton ici. Il reste dans ce navigateur ; ne le partage avec personne.</li>
+    </ol>
+    <form id="setup-form">
+      <label class="f" for="in-token">Jeton GitHub</label>
+      <input id="in-token" type="password" autocomplete="off" placeholder="github_pat_…">
+      <details>
+        <summary>Mon dépôt ne s'appelle pas « journal-gym »</summary>
+        <label class="f" for="in-repo">Dépôt (compte/nom)</label>
+        <input id="in-repo" type="text" autocomplete="off" placeholder="mon-compte/journal-gym">
+      </details>
+      <div class="row" style="margin-top:10px"><button class="btn primary" id="btn-connect" type="submit">Connecter</button></div>
+      <div class="err" id="setup-err"></div>
+    </form>
+  </section>
+
+  <!-- Compte -->
+  <section class="card hidden" id="account">
+    <h2>Compte</h2>
+    <p class="small muted" id="account-info"></p>
+    <div class="row">
+      <label class="f" for="sel-unit" style="margin:0">Unité de poids</label>
+      <select id="sel-unit" style="width:auto"><option value="lb">lb</option><option value="kg">kg</option></select>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn small" id="btn-csv" type="button">Exporter en CSV</button>
+      <button class="btn small danger" id="btn-logout" type="button">Se déconnecter de cet appareil</button>
+    </div>
+  </section>
+
+  <!-- Liste -->
+  <section id="list-view" class="hidden">
+    <div class="row spread" style="margin-bottom:12px">
+      <button class="btn primary" id="btn-new" type="button">＋ Nouvel entraînement</button>
+      <span class="muted small" id="count"></span>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <!-- Éditeur -->
+  <section class="card hidden" id="editor">
+    <h2 id="ed-title">Nouvel entraînement</h2>
+    <div class="grid2">
+      <div><label class="f" for="ed-date">Date</label><input id="ed-date" type="date"></div>
+      <div><label class="f" for="ed-name">Nom de l'entraînement</label><input id="ed-name" type="text" list="dl-names" placeholder="ex. Push, Jambes, Haut du corps" autocomplete="off"></div>
+    </div>
+    <div id="ed-ex"></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="btn-add-ex" type="button">＋ Exercice</button></div>
+    <div style="margin-top:14px"><label class="f" for="ed-note">Note (optionnel)</label><textarea id="ed-note" placeholder="Comment ça s'est passé ?"></textarea></div>
+    <div class="err" id="ed-err"></div>
+    <div class="editor-actions">
+      <div class="row"><button class="btn primary" id="btn-save" type="button">Enregistrer</button><button class="btn" id="btn-cancel" type="button">Annuler</button></div>
+      <button class="btn danger hidden" id="btn-delete" type="button">Supprimer</button>
+    </div>
+    <datalist id="dl-names"></datalist>
+    <datalist id="dl-ex"></datalist>
+  </section>
+</div>
+
+<script src="app.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = JG.esc;
+let draft = null;          // entraînement en cours d'édition
+let showAccount = false;
+
+/* ---------- affichage général ---------- */
+function render() {
+  const on = JG.connected();
+  $('setup').classList.toggle('hidden', on);
+  $('btn-account').classList.toggle('hidden', !on);
+  $('account').classList.toggle('hidden', !on || !showAccount || !!draft);
+  $('list-view').classList.toggle('hidden', !on || !!draft);
+  $('editor').classList.toggle('hidden', !on || !draft);
+  $('who').textContent = on ? 'Journal de ' + JG.login() : '';
+  renderSync();
+  if (!on) return;
+  $('account-info').textContent = 'Connecté : ' + JG.login() + ' · données dans le dépôt privé ' + JG.repo();
+  $('sel-unit').value = JG.unit();
+  if (!draft) renderList();
+}
+
+function renderSync() {
+  const s = JG.status(), el = $('sync');
+  const txt = { idle: '', loading: 'Chargement…', saving: 'Enregistrement…', ok: 'Synchronisé ✓',
+    offline: 'Hors ligne – tes changements sont gardés ici et seront envoyés au retour du réseau.', error: '⚠ ' + s.msg };
+  el.textContent = JG.connected() ? (txt[s.state] || '') : '';
+  el.className = s.state === 'error' ? 'error' : s.state === 'ok' ? 'ok' : '';
+}
+
+function renderList() {
+  const ws = JG.workouts(), u = JG.unit();
+  $('count').textContent = ws.length ? ws.length + ' entraînement' + (ws.length > 1 ? 's' : '') : '';
+  if (!ws.length) {
+    $('list').innerHTML = '<div class="card empty">Aucun entraînement pour l\'instant.<br>Appuie sur « Nouvel entraînement » pour commencer.</div>';
+    return;
+  }
+  $('list').innerHTML = ws.map(w => {
+    const nSets = w.exercises.reduce((a, e) => a + e.sets.length, 0), vol = JG.workoutVolume(w);
+    return '<article class="card w">' +
+      '<header><div><div class="w-date">' + esc(JG.fmtDate(w.date, true)) + '</div><h3>' + esc(w.name) + '</h3></div>' +
+      '<div class="row"><button class="btn small" data-act="edit" data-id="' + esc(w.id) + '">Modifier</button>' +
+      '<button class="btn small" data-act="dup" data-id="' + esc(w.id) + '" title="Refaire cet entraînement aujourd\'hui">Refaire</button></div></header>' +
+      (w.exercises.length ? '<ul>' + w.exercises.map(ex => '<li><b>' + esc(ex.name) + '</b><span>' + esc(JG.setsSummary(ex.sets, u)) + '</span></li>').join('') + '</ul>' : '') +
+      (w.note ? '<p class="note">' + esc(w.note) + '</p>' : '') +
+      '<footer>' + w.exercises.length + ' exercice' + (w.exercises.length > 1 ? 's' : '') + ' · ' + nSets + ' set' + (nSets > 1 ? 's' : '') +
+      (vol > 0 ? ' · volume ' + JG.fmtNum(vol) + ' ' + u : '') + '</footer></article>';
+  }).join('');
+}
+
+/* ---------- éditeur ---------- */
+const blankSet = () => ({ reps: '', weight: '' });
+const blankEx = () => ({ name: '', sets: [blankSet()] });
+
+function openEditor(w, asCopy) {
+  if (w) {
+    draft = { id: asCopy ? null : w.id, createdAt: asCopy ? null : w.createdAt, date: asCopy ? JG.today() : w.date, name: w.name, note: asCopy ? '' : (w.note || ''),
+      exercises: w.exercises.map(ex => ({ name: ex.name, sets: ex.sets.map(s => ({ reps: String(s.reps), weight: s.weight ? String(s.weight).replace('.', ',') : '' })) })) };
+  } else {
+    draft = { id: null, date: JG.today(), name: '', note: '', exercises: [blankEx()] };
+  }
+  $('ed-title').textContent = draft.id ? 'Modifier l\'entraînement' : 'Nouvel entraînement';
+  $('ed-date').value = draft.date; $('ed-name').value = draft.name; $('ed-note').value = draft.note; $('ed-err').textContent = '';
+  $('btn-delete').classList.toggle('hidden', !draft.id); disarm();
+  const hist = JG.history();
+  $('dl-ex').innerHTML = Array.from(hist.values()).sort((a, b) => b.sessions.length - a.sessions.length).map(h => '<option value="' + esc(h.name) + '">').join('');
+  $('dl-names').innerHTML = Array.from(new Set(JG.workouts().map(x => x.name))).map(n => '<option value="' + esc(n) + '">').join('');
+  renderExercises();
+  render();
+  window.scrollTo(0, 0);
+}
+
+function hintFor(name) {
+  const h = JG.history(draft && draft.id).get(JG.key(name));
+  if (!h) return '';
+  const s = h.sessions[h.sessions.length - 1];
+  return 'Dernière fois (' + JG.fmtDate(s.date) + ') : ' + JG.setsSummary(s.sets, JG.unit());
+}
+
+function renderExercises() {
+  const u = JG.unit();
+  $('ed-ex').innerHTML = draft.exercises.map((ex, i) =>
+    '<div class="ex" data-i="' + i + '">' +
+      '<div class="ex-head"><input class="ex-name" type="text" list="dl-ex" autocomplete="off" placeholder="Exercice (ex. Développé couché)" aria-label="Nom de l\'exercice" value="' + esc(ex.name) + '">' +
+      '<button class="icon" data-act="del-ex" type="button" title="Retirer l\'exercice" aria-label="Retirer l\'exercice">✕</button></div>' +
+      '<div class="hint">' + esc(hintFor(ex.name)) + '</div>' +
+      '<div class="set-row head"><span class="n">Set</span><span style="text-align:center">Reps</span><span style="text-align:center">Poids (' + u + ')</span><span></span></div>' +
+      ex.sets.map((s, j) =>
+        '<div class="set-row" data-j="' + j + '"><span class="n">' + (j + 1) + '</span>' +
+        '<input class="reps" type="text" inputmode="numeric" aria-label="Reps du set ' + (j + 1) + '" value="' + esc(s.reps) + '">' +
+        '<input class="wt" type="text" inputmode="decimal" aria-label="Poids du set ' + (j + 1) + '" value="' + esc(s.weight) + '">' +
+        '<button class="icon" data-act="del-set" type="button" title="Retirer le set" aria-label="Retirer le set">✕</button></div>').join('') +
+      '<button class="btn small add-set" data-act="add-set" type="button">＋ Set</button>' +
+    '</div>').join('');
+}
+
+$('ed-ex').addEventListener('input', e => {
+  const exEl = e.target.closest('.ex'); if (!exEl) return;
+  const ex = draft.exercises[+exEl.dataset.i];
+  if (e.target.classList.contains('ex-name')) { ex.name = e.target.value; exEl.querySelector('.hint').textContent = hintFor(ex.name); return; }
+  const row = e.target.closest('.set-row'); if (!row) return;
+  const s = ex.sets[+row.dataset.j];
+  if (e.target.classList.contains('reps')) s.reps = e.target.value;
+  if (e.target.classList.contains('wt')) s.weight = e.target.value;
+});
+
+$('ed-ex').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const exEl = b.closest('.ex'), i = +exEl.dataset.i, ex = draft.exercises[i];
+  if (b.dataset.act === 'add-set') {
+    const last = ex.sets[ex.sets.length - 1];
+    ex.sets.push(last ? { reps: last.reps, weight: last.weight } : blankSet());   // recopie le set précédent
+    renderExercises();
+    const rows = $('ed-ex').querySelectorAll('.ex[data-i="' + i + '"] .set-row[data-j]');
+    const inp = rows[rows.length - 1].querySelector('.reps'); inp.focus(); inp.select();
+  } else if (b.dataset.act === 'del-set') {
+    ex.sets.splice(+b.closest('.set-row').dataset.j, 1); renderExercises();
+  } else if (b.dataset.act === 'del-ex') {
+    draft.exercises.splice(i, 1); renderExercises();
+  }
+});
+
+$('btn-add-ex').addEventListener('click', () => {
+  draft.exercises.push(blankEx()); renderExercises();
+  const names = $('ed-ex').querySelectorAll('.ex-name'); names[names.length - 1].focus();
+});
+
+function collect() {
+  const date = $('ed-date').value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Choisis une date.');
+  const exercises = [];
+  for (const ex of draft.exercises) {
+    const name = ex.name.trim(), sets = [];
+    for (const s of ex.sets) {
+      const rs = String(s.reps).trim(), wsr = String(s.weight).trim();
+      if (!rs && !wsr) continue;
+      const reps = JG.num(rs), weight = wsr ? JG.num(wsr) : 0;
+      if (!(reps > 0) || reps !== Math.round(reps)) throw new Error('Reps invalides' + (name ? ' pour « ' + name + ' »' : '') + ' : entre un nombre entier.');
+      if (!(weight >= 0)) throw new Error('Poids invalide' + (name ? ' pour « ' + name + ' »' : '') + '.');
+      sets.push({ reps, weight });
+    }
+    if (!name && !sets.length) continue;
+    if (!name) throw new Error('Donne un nom à chaque exercice.');
+    exercises.push({ name, sets });
+  }
+  const name = $('ed-name').value.trim() || 'Entraînement';
+  if (!exercises.length && !$('ed-name').value.trim()) throw new Error('Ajoute au moins un exercice ou un nom.');
+  return { id: draft.id, createdAt: draft.createdAt, date, name, note: $('ed-note').value.trim(), exercises };
+}
+
+$('btn-save').addEventListener('click', () => {
+  try { const w = collect(); draft = null; JG.saveWorkout(w); render(); window.scrollTo(0, 0); }
+  catch (e) { $('ed-err').textContent = e.message; }
+});
+$('btn-cancel').addEventListener('click', () => { draft = null; render(); });
+
+let armTimer = null;
+function disarm() { const b = $('btn-delete'); b.classList.remove('armed'); b.textContent = 'Supprimer'; clearTimeout(armTimer); }
+$('btn-delete').addEventListener('click', () => {
+  const b = $('btn-delete');
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Confirmer la suppression'; armTimer = setTimeout(disarm, 4000); return; }
+  const id = draft.id; draft = null; JG.deleteWorkout(id); render();
+});
+
+/* ---------- liste, compte, connexion ---------- */
+$('btn-new').addEventListener('click', () => openEditor(null));
+$('list').addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const w = JG.getWorkout(b.dataset.id); if (!w) return;
+  openEditor(w, b.dataset.act === 'dup');
+});
+$('btn-account').addEventListener('click', () => { showAccount = !showAccount; render(); });
+$('sel-unit').addEventListener('change', e => JG.setUnit(e.target.value));
+$('btn-logout').addEventListener('click', () => { showAccount = false; draft = null; JG.disconnect(); render(); });
+$('btn-csv').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + JG.toCSV()], { type: 'text/csv;charset=utf-8' }));
+  a.download = 'journal-gym-' + JG.today() + '.csv'; document.body.appendChild(a); a.click(); a.remove();
+});
+$('setup-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = $('btn-connect'); btn.disabled = true; btn.textContent = 'Connexion…'; $('setup-err').textContent = '';
+  try { await JG.connect($('in-token').value, $('in-repo').value); $('in-token').value = ''; }
+  catch (err) { $('setup-err').textContent = err instanceof TypeError ? 'Impossible de joindre GitHub. Vérifie ta connexion.' : err.message; }
+  btn.disabled = false; btn.textContent = 'Connecter'; render();
+});
+
+JG.onChange(() => { if (draft) renderSync(); else render(); });
+JG.init();
+render();
+</script>
+</body>
+</html>

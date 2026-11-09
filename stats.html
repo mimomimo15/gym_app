@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stats – Journal de gym</title>
+<meta name="theme-color" content="#d9480f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Journal de gym <small id="who"></small></h1>
+    <nav class="tabs">
+      <a class="btn" href="index.html">Journal</a>
+      <a class="btn active" href="stats.html">Stats</a>
+    </nav>
+  </header>
+  <div id="sync" role="status"></div>
+
+  <div class="card empty hidden" id="need-login">Connecte d'abord ton journal sur la page <a href="index.html">Journal</a>.</div>
+  <div class="card empty hidden" id="need-data">Pas encore de données. Ajoute un entraînement dans le <a href="index.html">Journal</a> et tes stats apparaîtront ici.</div>
+
+  <div id="stats" class="hidden">
+    <div class="tiles" id="tiles"></div>
+
+    <section class="card">
+      <div class="row spread">
+        <h2 style="margin:0">Progression par exercice</h2>
+        <select id="sel-ex" style="width:auto;max-width:100%" aria-label="Exercice"></select>
+      </div>
+      <p class="muted small" id="prog-sum" style="margin:8px 0 0"></p>
+      <div class="chartbox"><canvas id="chart" role="img" aria-label="Progression du poids maximal et du 1RM estimé"></canvas></div>
+      <p class="muted small" style="margin:10px 0 0">1RM estimé = poids × (1 + reps ÷ 30) (formule d'Epley), meilleur set de chaque séance.</p>
+      <div class="tablewrap" style="margin-top:12px">
+        <table><thead><tr><th>Séance</th><th>Sets</th><th>Poids max</th><th>1RM estimé</th><th>Volume</th></tr></thead><tbody id="sess"></tbody></table>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Records personnels</h2>
+      <p class="muted small" style="margin:-4px 0 8px">Touche un exercice pour voir sa progression.</p>
+      <div class="tablewrap">
+        <table><thead><tr><th>Exercice</th><th>Poids max</th><th>1RM estimé</th><th>Reps max</th><th>Volume / séance</th><th>Séances</th></tr></thead><tbody id="recs"></tbody></table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="app.js"></script>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const esc = JG.esc, f = JG.fmtNum;
+let chart = null, current = null;
+
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+function render() {
+  const on = JG.connected(), ws = on ? JG.workouts() : [];
+  $('who').textContent = on ? 'Journal de ' + JG.login() : '';
+  const s = JG.status();
+  $('sync').textContent = on ? ({ loading: 'Chargement…', saving: 'Enregistrement…', ok: 'Synchronisé ✓', offline: 'Hors ligne – dernières données connues.', error: '⚠ ' + s.msg }[s.state] || '') : '';
+  $('sync').className = s.state === 'error' ? 'error' : s.state === 'ok' ? 'ok' : '';
+  const recs = on ? JG.records() : [];
+  $('need-login').classList.toggle('hidden', on);
+  $('need-data').classList.toggle('hidden', !on || recs.length > 0);
+  $('stats').classList.toggle('hidden', !recs.length);
+  if (!recs.length) return;
+  const u = JG.unit(), hist = JG.history();
+
+  // tuiles
+  const now = new Date(), ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const d30 = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29);
+  const month = ws.filter(w => w.date.slice(0, 7) === ym).length;
+  const last30 = ws.filter(w => JG.toDate(w.date) >= d30).length;
+  const vol = ws.reduce((a, w) => a + JG.workoutVolume(w), 0);
+  const tile = (k, v, sub) => '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + (sub || '&nbsp;') + '</div></div>';
+  $('tiles').innerHTML =
+    tile('Entraînements', ws.length, 'depuis le ' + esc(JG.fmtDate(ws[ws.length - 1].date))) +
+    tile('Ce mois-ci', month, last30 + ' sur les 30 derniers jours') +
+    tile('Exercices différents', recs.length, '') +
+    tile('Volume total', f(vol), u + ' soulevés (reps × poids)');
+
+  // sélecteur
+  if (!current || !hist.has(current)) current = recs[0].key;
+  $('sel-ex').innerHTML = recs.map(r => '<option value="' + esc(r.key) + '"' + (r.key === current ? ' selected' : '') + '>' + esc(r.name) + ' (' + r.count + ')</option>').join('');
+
+  // records
+  const cell = (v, d) => v ? v + '<span class="d">' + esc(JG.fmtDate(d)) + '</span>' : '–';
+  $('recs').innerHTML = recs.map(r => '<tr class="click" data-k="' + esc(r.key) + '"><td><b>' + esc(r.name) + '</b></td>' +
+    '<td>' + cell(r.maxW ? f(r.maxW) + ' ' + u + ' × ' + r.maxWReps : '', r.maxWDate) + '</td>' +
+    '<td>' + cell(r.e1rm ? f(r.e1rm) + ' ' + u : '', r.e1rmDate) + '</td>' +
+    '<td>' + cell(r.maxReps ? String(r.maxReps) : '', r.maxRepsDate) + '</td>' +
+    '<td>' + cell(r.volume ? f(r.volume) + ' ' + u : '', r.volumeDate) + '</td>' +
+    '<td>' + r.count + '</td></tr>').join('');
+
+  renderProgress(hist, u);
+}
+
+function renderProgress(hist, u) {
+  const h = hist.get(current); if (!h) return;
+  const ss = h.sessions, first = ss[0], last = ss[ss.length - 1];
+  const weighted = ss.some(s => s.maxW > 0);
+  let sum = ss.length + ' séance' + (ss.length > 1 ? 's' : '');
+  if (ss.length > 1 && weighted && first.e1rm > 0) {
+    const diff = last.e1rm - first.e1rm;
+    sum += ' · 1RM estimé : ' + f(first.e1rm) + ' → ' + f(last.e1rm) + ' ' + u + ' (' + (diff >= 0 ? '+' : '−') + f(Math.abs(diff)) + ' ' + u + ' depuis le ' + JG.fmtDate(first.date) + ')';
+  } else if (!weighted) sum += ' · exercice sans poids : le graphique montre les reps max par séance';
+  $('prog-sum').textContent = sum;
+
+  // tableau des séances (récentes d'abord), records en évidence
+  let bestW = 0, bestE = 0; const prW = new Set(), prE = new Set();
+  ss.forEach((s, i) => { if (s.maxW > bestW) { bestW = s.maxW; if (i) prW.add(i); } if (s.e1rm > bestE) { bestE = s.e1rm; if (i) prE.add(i); } });
+  $('sess').innerHTML = ss.map((s, i) => '<tr><td>' + esc(JG.fmtDate(s.date)) + '</td><td>' + esc(JG.setsSummary(s.sets, '')) + '</td>' +
+    '<td class="' + (prW.has(i) ? 'pr' : '') + '">' + (s.maxW ? f(s.maxW) + ' × ' + s.maxWReps : '–') + (prW.has(i) ? ' ★' : '') + '</td>' +
+    '<td class="' + (prE.has(i) ? 'pr' : '') + '">' + (s.e1rm ? f(s.e1rm) : '–') + (prE.has(i) ? ' ★' : '') + '</td>' +
+    '<td>' + (s.volume ? f(s.volume) : '–') + '</td></tr>').reverse().join('');
+
+  // graphique
+  if (typeof Chart === 'undefined') return;
+  const x = s => JG.toDate(s.date).getTime();
+  const accent = css('--accent'), ink = css('--text'), muted = css('--muted'), line = css('--line');
+  const datasets = weighted ? [
+    { label: 'Poids max (' + u + ')', data: ss.map(s => ({ x: x(s), y: s.maxW })), borderColor: accent, backgroundColor: accent, borderWidth: 2.5, pointRadius: 4, tension: .15 },
+    { label: '1RM estimé (' + u + ')', data: ss.map(s => ({ x: x(s), y: Math.round(s.e1rm * 10) / 10 })), borderColor: muted, backgroundColor: muted, borderWidth: 2, borderDash: [6, 4], pointRadius: 3, pointStyle: 'rectRot', tension: .15 }
+  ] : [
+    { label: 'Reps max', data: ss.map(s => ({ x: x(s), y: s.maxReps })), borderColor: accent, backgroundColor: accent, borderWidth: 2.5, pointRadius: 4, tension: .15 }
+  ];
+  const day = 864e5, pad = ss.length > 1 ? Math.max(day, (x(last) - x(first)) * .04) : 3 * day;
+  if (chart) chart.destroy();
+  chart = new Chart($('chart'), {
+    type: 'line', data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'nearest', intersect: false },
+      scales: {
+        x: { type: 'linear', min: x(first) - pad, max: x(last) + pad, grid: { color: line },
+          ticks: { color: muted, maxTicksLimit: 7, callback: v => new Date(v).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' }) } },
+        y: { grid: { color: line }, ticks: { color: muted }, title: { display: true, text: weighted ? u : 'reps', color: muted } }
+      },
+      plugins: {
+        legend: { labels: { color: ink, usePointStyle: true } },
+        tooltip: { callbacks: { title: items => new Date(items[0].parsed.x).toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' }) } }
+      }
+    }
+  });
+}
+
+$('sel-ex').addEventListener('change', e => { current = e.target.value; renderProgress(JG.history(), JG.unit()); });
+$('recs').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-k]'); if (!tr) return;
+  current = tr.dataset.k; $('sel-ex').value = current; renderProgress(JG.history(), JG.unit());
+  $('sel-ex').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+JG.onChange(render);
+JG.init();
+render();
+</script>
+</body>
+</html>
