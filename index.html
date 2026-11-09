@@ -2,12 +2,16 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Journal de gym</title>
 <meta name="theme-color" content="#d9480f">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Gym">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -17,6 +21,7 @@
     <nav class="tabs">
       <a class="btn active" href="index.html">Journal</a>
       <a class="btn" href="stats.html">Stats</a>
+      <button class="btn hidden" id="btn-install" type="button">Installer l'app</button>
       <button class="btn hidden" id="btn-account" type="button">Compte</button>
     </nav>
   </header>
@@ -299,7 +304,18 @@ $('setup-form').addEventListener('submit', async e => {
   btn.disabled = false; btn.textContent = 'Connecter'; render();
 });
 
+/* ---------- installation (PWA) ---------- */
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('btn-install').classList.remove('hidden'); });
+window.addEventListener('appinstalled', () => { installEvt = null; $('btn-install').classList.add('hidden'); });
+$('btn-install').addEventListener('click', async () => {
+  if (!installEvt) return;
+  installEvt.prompt(); try { await installEvt.userChoice; } catch (e) { /* refusé */ }
+  installEvt = null; $('btn-install').classList.add('hidden');
+});
+
 JG.onChange(() => { if (draft) renderSync(); else render(); });
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 JG.init();
 render();
 </script>
