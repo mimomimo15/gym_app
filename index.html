@@ -120,24 +120,42 @@ function renderSync() {
   el.className = s.state === 'error' ? 'error' : s.state === 'ok' ? 'ok' : '';
 }
 
+const openGroups = new Set();   // groupes dont l'historique est déplié
+
+function sessionHTML(w, u) {
+  const nSets = w.exercises.reduce((a, e) => a + e.sets.length, 0), vol = JG.workoutVolume(w);
+  return '<div class="sess">' +
+    '<div class="sess-head"><span class="w-date">' + esc(JG.fmtDate(w.date, true)) + '</span>' +
+    '<button class="btn small" data-act="edit" data-id="' + esc(w.id) + '">Modifier</button></div>' +
+    (w.exercises.length ? '<ul>' + w.exercises.map(ex => '<li><b>' + esc(ex.name) + '</b><span>' + esc(JG.setsSummary(ex.sets, u)) + '</span></li>').join('') + '</ul>' : '') +
+    (w.note ? '<p class="note">' + esc(w.note) + '</p>' : '') +
+    '<footer>' + w.exercises.length + ' exercice' + (w.exercises.length > 1 ? 's' : '') + ' · ' + nSets + ' set' + (nSets > 1 ? 's' : '') +
+    (vol > 0 ? ' · volume ' + JG.fmtNum(vol) + ' ' + u : '') + '</footer></div>';
+}
+
+/* Les séances qui portent le même nom sont regroupées dans une seule carte (la plus récente en premier). */
 function renderList() {
   const ws = JG.workouts(), u = JG.unit();
-  $('count').textContent = ws.length ? ws.length + ' entraînement' + (ws.length > 1 ? 's' : '') : '';
   if (!ws.length) {
+    $('count').textContent = '';
     $('list').innerHTML = '<div class="card empty">Aucun entraînement pour l\'instant.<br>Appuie sur « Nouvel entraînement » pour commencer.</div>';
     return;
   }
-  $('list').innerHTML = ws.map(w => {
-    const nSets = w.exercises.reduce((a, e) => a + e.sets.length, 0), vol = JG.workoutVolume(w);
-    return '<article class="card w">' +
-      '<header><div><div class="w-date">' + esc(JG.fmtDate(w.date, true)) + '</div><h3>' + esc(w.name) + '</h3></div>' +
-      '<div class="row"><button class="btn small" data-act="edit" data-id="' + esc(w.id) + '">Modifier</button>' +
-      '<button class="btn small" data-act="dup" data-id="' + esc(w.id) + '" title="Refaire cet entraînement aujourd\'hui">Refaire</button></div></header>' +
-      (w.exercises.length ? '<ul>' + w.exercises.map(ex => '<li><b>' + esc(ex.name) + '</b><span>' + esc(JG.setsSummary(ex.sets, u)) + '</span></li>').join('') + '</ul>' : '') +
-      (w.note ? '<p class="note">' + esc(w.note) + '</p>' : '') +
-      '<footer>' + w.exercises.length + ' exercice' + (w.exercises.length > 1 ? 's' : '') + ' · ' + nSets + ' set' + (nSets > 1 ? 's' : '') +
-      (vol > 0 ? ' · volume ' + JG.fmtNum(vol) + ' ' + u : '') + '</footer></article>';
-  }).join('');
+  const groups = new Map();
+  for (const w of ws) { const k = JG.key(w.name); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(w); }
+  $('count').textContent = groups.size + ' entraînement' + (groups.size > 1 ? 's' : '') + ' · ' + ws.length + ' séance' + (ws.length > 1 ? 's' : '');
+  let html = '';
+  groups.forEach((list, k) => {
+    const last = list[0], older = list.slice(1);
+    html += '<article class="card w">' +
+      '<header><div><h3>' + esc(last.name) + '</h3><div class="muted small">' + list.length + ' séance' + (list.length > 1 ? 's' : '') + '</div></div>' +
+      '<button class="btn small primary" data-act="dup" data-id="' + esc(last.id) + '" title="Ajouter une séance aujourd\'hui à partir de la dernière">＋ Nouvelle séance</button></header>' +
+      sessionHTML(last, u) +
+      (older.length ? '<details data-k="' + esc(k) + '"' + (openGroups.has(k) ? ' open' : '') + '><summary>Séances précédentes (' + older.length + ')</summary>' +
+        older.map(w => sessionHTML(w, u)).join('') + '</details>' : '') +
+      '</article>';
+  });
+  $('list').innerHTML = html;
 }
 
 /* ---------- éditeur ---------- */
@@ -151,7 +169,7 @@ function openEditor(w, asCopy) {
   } else {
     draft = { id: null, date: JG.today(), name: '', note: '', exercises: [blankEx()] };
   }
-  $('ed-title').textContent = draft.id ? 'Modifier l\'entraînement' : 'Nouvel entraînement';
+  $('ed-title').textContent = draft.id ? 'Modifier la séance' : (asCopy ? 'Nouvelle séance – ' + w.name : 'Nouvel entraînement');
   $('ed-date').value = draft.date; $('ed-name').value = draft.name; $('ed-note').value = draft.note; $('ed-err').textContent = '';
   $('btn-delete').classList.toggle('hidden', !draft.id); disarm();
   const hist = JG.history();
@@ -261,6 +279,10 @@ $('list').addEventListener('click', e => {
   const w = JG.getWorkout(b.dataset.id); if (!w) return;
   openEditor(w, b.dataset.act === 'dup');
 });
+$('list').addEventListener('toggle', e => {
+  const k = e.target.dataset && e.target.dataset.k; if (!k) return;
+  if (e.target.open) openGroups.add(k); else openGroups.delete(k);
+}, true);
 $('btn-account').addEventListener('click', () => { showAccount = !showAccount; render(); });
 $('sel-unit').addEventListener('change', e => JG.setUnit(e.target.value));
 $('btn-logout').addEventListener('click', () => { showAccount = false; draft = null; JG.disconnect(); render(); });

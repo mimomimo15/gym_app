@@ -54,6 +54,11 @@ textarea { min-height: 64px; resize: vertical; }
 
 /* liste des entraînements */
 .w header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.sess { margin-top: 12px; padding-top: 10px; border-top: 2px solid var(--line); }
+.sess-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.sess ul { margin-top: 6px; }
+.w details { margin-top: 10px; }
+.w details summary { font-weight: 600; }
 .w-date { font-size: .8rem; color: var(--muted); text-transform: capitalize; }
 .w ul { list-style: none; padding: 0; margin: 10px 0 0; }
 .w li { padding: 6px 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

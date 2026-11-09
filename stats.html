@@ -81,7 +81,7 @@ function render() {
   const vol = ws.reduce((a, w) => a + JG.workoutVolume(w), 0);
   const tile = (k, v, sub) => '<div class="tile"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="s">' + (sub || '&nbsp;') + '</div></div>';
   $('tiles').innerHTML =
-    tile('Entraînements', ws.length, 'depuis le ' + esc(JG.fmtDate(ws[ws.length - 1].date))) +
+    tile('Séances', ws.length, 'depuis le ' + esc(JG.fmtDate(ws[ws.length - 1].date))) +
     tile('Ce mois-ci', month, last30 + ' sur les 30 derniers jours') +
     tile('Exercices différents', recs.length, '') +
     tile('Volume total', f(vol), u + ' soulevés (reps × poids)');
