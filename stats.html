@@ -21,6 +21,7 @@
     <nav class="tabs">
       <a class="btn" href="index.html">Journal</a>
       <a class="btn active" href="stats.html">Stats</a>
+      <a class="btn hidden" id="tab-compte" href="index.html#compte">Compte</a>
     </nav>
   </header>
   <div id="sync" role="status"></div>
@@ -67,6 +68,7 @@ function css(v) { return getComputedStyle(document.documentElement).getPropertyV
 function render() {
   const on = JG.connected(), ws = on ? JG.workouts() : [];
   $('who').textContent = on ? 'Journal de ' + JG.login() : '';
+  $('tab-compte').classList.toggle('hidden', !on);
   const s = JG.status();
   $('sync').textContent = on ? ({ loading: 'Chargement…', saving: 'Enregistrement…', ok: 'Synchronisé ✓', offline: 'Hors ligne – dernières données connues.', error: '⚠ ' + s.msg }[s.state] || '') : '';
   $('sync').className = s.state === 'error' ? 'error' : s.state === 'ok' ? 'ok' : '';

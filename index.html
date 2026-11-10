@@ -19,7 +19,7 @@
   <header class="top">
     <h1>Journal de gym <small id="who"></small></h1>
     <nav class="tabs">
-      <a class="btn active" href="index.html">Journal</a>
+      <a class="btn active" id="tab-journal" href="index.html">Journal</a>
       <a class="btn" href="stats.html">Stats</a>
       <button class="btn hidden" id="btn-install" type="button">Installer l'app</button>
       <button class="btn hidden" id="btn-account" type="button">Compte</button>
@@ -105,15 +105,18 @@
 const $ = id => document.getElementById(id);
 const esc = JG.esc;
 let draft = null;          // entraînement en cours d'édition
-let showAccount = false;
+let showAccount = location.hash === '#compte';   // l'onglet Compte de la page Stats arrive ici
 
 /* ---------- affichage général ---------- */
 function render() {
   const on = JG.connected();
   $('setup').classList.toggle('hidden', on);
   $('btn-account').classList.toggle('hidden', !on);
-  $('account').classList.toggle('hidden', !on || !showAccount || !!draft);
-  $('list-view').classList.toggle('hidden', !on || !!draft);
+  const acc = on && showAccount && !draft;
+  $('account').classList.toggle('hidden', !acc);
+  $('list-view').classList.toggle('hidden', !on || !!draft || acc);
+  $('btn-account').classList.toggle('active', acc);
+  $('tab-journal').classList.toggle('active', !acc);
   $('editor').classList.toggle('hidden', !on || !draft);
   document.body.classList.toggle('editing', on && !!draft);
   $('who').textContent = on ? 'Journal de ' + JG.login() : '';
@@ -325,7 +328,9 @@ $('list').addEventListener('toggle', e => {
   const k = e.target.dataset && e.target.dataset.k; if (!k) return;
   if (e.target.open) openGroups.add(k); else openGroups.delete(k);
 }, true);
-$('btn-account').addEventListener('click', () => { showAccount = !showAccount; render(); });
+function setAccount(v) { showAccount = v; draft = null; try { history.replaceState(null, '', v ? '#compte' : location.pathname); } catch (e) { /* sans importance */ } render(); window.scrollTo(0, 0); }
+$('btn-account').addEventListener('click', () => setAccount(true));
+$('tab-journal').addEventListener('click', e => { e.preventDefault(); setAccount(false); });
 $('sel-unit').addEventListener('change', e => JG.setUnit(e.target.value));
 $('btn-logout').addEventListener('click', () => { showAccount = false; draft = null; JG.disconnect(); render(); });
 $('btn-csv').addEventListener('click', () => {
