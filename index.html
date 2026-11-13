@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Journal de gym</title>
-<meta name="theme-color" content="#d9480f">
+<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141415" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -12,29 +13,32 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Gym">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" crossorigin>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>Journal de gym <small id="who"></small></h1>
+    <h1 class="brand"><img src="icon.svg" alt="" width="24" height="24">Journal de gym</h1>
     <nav class="tabs">
-      <a class="btn active" id="tab-journal" href="index.html">Journal</a>
-      <a class="btn" href="stats.html">Stats</a>
-      <button class="btn hidden" id="btn-install" type="button">Installer l'app</button>
-      <button class="btn hidden" id="btn-account" type="button">Compte</button>
+      <a class="tab active" id="tab-journal" href="index.html"><i data-icon="book"></i>Journal</a>
+      <a class="tab" href="stats.html"><i data-icon="chart"></i>Stats</a>
+      <button class="tab hidden" id="btn-account" type="button"><i data-icon="user"></i>Compte</button>
+      <button class="tab hidden" id="btn-install" type="button"><i data-icon="download"></i>Installer</button>
     </nav>
+    <div class="meta"><span id="who"></span><span id="sync" role="status"></span></div>
   </header>
-  <div id="sync" role="status"></div>
+  <div id="notice" class="notice hidden"></div>
 
   <!-- Connexion -->
-  <section class="card hidden" id="setup">
+  <section class="card narrow hidden" id="setup">
     <h2>Connecte ton journal</h2>
-    <p class="muted small">Chaque personne a son propre journal, gardé dans <b>son</b> dépôt privé GitHub. Personne d'autre ne le voit. À faire une seule fois par appareil :</p>
+    <p class="sub">Chaque personne a son propre journal, gardé dans <b>son</b> dépôt privé GitHub. Personne d'autre ne le voit. À faire une seule fois par appareil :</p>
     <ol class="steps">
       <li>Crée un compte <a href="https://github.com/signup" target="_blank" rel="noopener">GitHub</a> (gratuit) si tu n'en as pas.</li>
       <li><a href="https://github.com/new?name=journal-gym&visibility=private" target="_blank" rel="noopener">Crée un dépôt <b>privé</b></a> nommé <code>journal-gym</code> (laisse-le vide).</li>
-      <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Crée un jeton « fine-grained »</a> : <i>Repository access</i> → <i>Only select repositories</i> → <code>journal-gym</code> ; <i>Permissions</i> → <i>Contents</i> → <b>Read and write</b>. Choisis une longue expiration.</li>
+      <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Crée un jeton « fine-grained »</a> : <span class="ui">Repository access</span> → <span class="ui">Only select repositories</span> → <code>journal-gym</code> ; <span class="ui">Permissions</span> → <span class="ui">Contents</span> → <span class="ui">Read and write</span>. Choisis une longue expiration.</li>
       <li>Colle le jeton ici. Il reste dans ce navigateur ; ne le partage avec personne.</li>
     </ol>
     <form id="setup-form">
@@ -45,48 +49,48 @@
         <label class="f" for="in-repo">Dépôt (compte/nom)</label>
         <input id="in-repo" type="text" autocomplete="off" placeholder="mon-compte/journal-gym">
       </details>
-      <div class="row" style="margin-top:10px"><button class="btn primary" id="btn-connect" type="submit">Connecter</button></div>
+      <div class="row top-gap"><button class="btn primary" id="btn-connect" type="submit">Connecter</button></div>
       <div class="err" id="setup-err"></div>
     </form>
   </section>
 
   <!-- Compte -->
-  <section class="card hidden" id="account">
+  <section class="card narrow hidden" id="account">
     <h2>Compte</h2>
-    <p class="small muted" id="account-info"></p>
-    <div class="row">
-      <label class="f" for="sel-unit" style="margin:0">Unité de poids</label>
-      <select id="sel-unit" style="width:auto"><option value="lb">lb</option><option value="kg">kg</option></select>
+    <p class="sub" id="account-info"></p>
+    <div class="row top-gap">
+      <label for="sel-unit">Unité de poids</label>
+      <select id="sel-unit" class="auto"><option value="lb">lb</option><option value="kg">kg</option></select>
     </div>
-    <div class="row" style="margin-top:12px">
-      <button class="btn small" id="btn-csv" type="button">Exporter en CSV</button>
-      <button class="btn small danger" id="btn-logout" type="button">Se déconnecter de cet appareil</button>
+    <div class="row top-gap">
+      <button class="btn" id="btn-csv" type="button">Exporter en CSV</button>
+      <button class="btn danger" id="btn-logout" type="button">Se déconnecter de cet appareil</button>
     </div>
   </section>
 
   <!-- Liste -->
   <section id="list-view" class="hidden">
-    <div class="row spread list-top" style="margin-bottom:12px">
-      <button class="btn primary" id="btn-new" type="button">＋ Nouvel entraînement</button>
-      <span class="muted small" id="count"></span>
+    <div class="row spread list-top">
+      <button class="btn primary" id="btn-new" type="button"><i data-icon="plus"></i>Nouvel entraînement</button>
+      <span id="count"></span>
     </div>
     <div id="list"></div>
   </section>
 
   <!-- Éditeur -->
-  <section class="card hidden" id="editor">
+  <section class="card narrow hidden" id="editor">
     <h2 id="ed-title">Nouvel entraînement</h2>
     <div class="grid2">
       <div><label class="f" for="ed-date">Date</label><input id="ed-date" type="date"></div>
       <div><label class="f" for="ed-name">Nom de l'entraînement</label><input id="ed-name" type="text" list="dl-names" placeholder="ex. Push, Jambes" autocomplete="off"></div>
     </div>
     <div id="ed-ex"></div>
-    <div class="row add-row" style="margin-top:12px">
-      <button class="btn" data-add="ex" type="button">＋ Exercice</button>
-      <button class="btn" data-add="warmup" type="button">＋ Échauffement</button>
-      <button class="btn" data-add="stretch" type="button">＋ Étirement</button>
+    <div class="row add-row">
+      <button class="btn" data-add="ex" type="button"><i data-icon="plus"></i>Exercice</button>
+      <button class="btn" data-add="warmup" type="button"><i data-icon="plus"></i>Échauffement</button>
+      <button class="btn" data-add="stretch" type="button"><i data-icon="plus"></i>Étirement</button>
     </div>
-    <div style="margin-top:14px"><label class="f" for="ed-note">Note (optionnel)</label><textarea id="ed-note" placeholder="Comment ça s'est passé ?"></textarea></div>
+    <div class="note-field"><label class="f" for="ed-note">Note</label><textarea id="ed-note" placeholder="Comment ça s'est passé ?"></textarea></div>
     <div class="err" id="ed-err"></div>
     <div class="editor-actions">
       <div class="row"><button class="btn primary" id="btn-save" type="button">Enregistrer</button><button class="btn" id="btn-cancel" type="button">Annuler</button></div>
@@ -119,7 +123,6 @@ function render() {
   $('tab-journal').classList.toggle('active', !acc);
   $('editor').classList.toggle('hidden', !on || !draft);
   document.body.classList.toggle('editing', on && !!draft);
-  $('who').textContent = on ? 'Journal de ' + JG.login() : '';
   renderSync();
   if (!on) return;
   $('account-info').textContent = 'Connecté : ' + JG.login() + ' · données dans le dépôt privé ' + JG.repo();
@@ -128,11 +131,7 @@ function render() {
 }
 
 function renderSync() {
-  const s = JG.status(), el = $('sync');
-  const txt = { idle: '', loading: 'Chargement…', saving: 'Enregistrement…', ok: 'Synchronisé ✓',
-    offline: 'Hors ligne – tes changements sont gardés ici et seront envoyés au retour du réseau.', error: '⚠ ' + s.msg };
-  el.textContent = JG.connected() ? (txt[s.state] || '') : '';
-  el.className = s.state === 'error' ? 'error' : s.state === 'ok' ? 'ok' : '';
+  JG.paintStatus('Tes changements sont gardés ici et seront envoyés au retour du réseau');
 }
 
 /* Types d'éléments d'une séance. Seuls les exercices ont des sets et comptent dans les stats. */
@@ -149,10 +148,10 @@ function sessionHTML(w, u) {
   const nEx = w.exercises.filter(isEx).length, nWarm = w.exercises.filter(e => e.type === 'warmup').length, nStr = w.exercises.filter(e => e.type === 'stretch').length;
   return '<div class="sess">' +
     '<div class="sess-head"><span class="w-date">' + esc(JG.fmtDate(w.date, true)) + '</span>' +
-    '<button class="btn small" data-act="edit" data-id="' + esc(w.id) + '">Modifier</button></div>' +
+    '<button class="btn small ghost" data-act="edit" data-id="' + esc(w.id) + '">Modifier</button></div>' +
     (w.exercises.length ? '<ul>' + w.exercises.map(ex => isEx(ex)
-      ? '<li><b>' + esc(ex.name) + '</b><span>' + esc(JG.setsSummary(ex.sets, u)) + '</span></li>'
-      : '<li class="extra"><span><span class="tag ' + esc(ex.type) + '">' + TYPES[ex.type].label + '</span> <b>' + esc(ex.name) + '</b></span><span>' + esc(ex.detail || '') + '</span></li>').join('') + '</ul>' : '') +
+      ? '<li><b>' + esc(ex.name) + '</b><span class="sets">' + esc(JG.setsSummary(ex.sets, u)) + '</span></li>'
+      : '<li class="extra"><span><span class="tag">' + TYPES[ex.type].label + '</span><b>' + esc(ex.name) + '</b></span><span class="sets">' + esc(ex.detail || '') + '</span></li>').join('') + '</ul>' : '') +
     (w.note ? '<p class="note">' + esc(w.note) + '</p>' : '') +
     '<footer>' + nEx + ' exercice' + (nEx > 1 ? 's' : '') + ' · ' + nSets + ' set' + (nSets > 1 ? 's' : '') +
     (nWarm ? ' · ' + nWarm + ' échauffement' + (nWarm > 1 ? 's' : '') : '') + (nStr ? ' · ' + nStr + ' étirement' + (nStr > 1 ? 's' : '') : '') +
@@ -174,10 +173,10 @@ function renderList() {
   groups.forEach((list, k) => {
     const last = list[0], older = list.slice(1);
     html += '<article class="card w">' +
-      '<header><div><h3>' + esc(last.name) + '</h3><div class="muted small">' + list.length + ' séance' + (list.length > 1 ? 's' : '') + '</div></div>' +
-      '<button class="btn small primary" data-act="dup" data-id="' + esc(last.id) + '" title="Ajouter une séance aujourd\'hui à partir de la dernière">＋ Nouvelle séance</button></header>' +
+      '<header><div><h3>' + esc(last.name) + '</h3><div class="small">' + list.length + ' séance' + (list.length > 1 ? 's' : '') + '</div></div>' +
+      '<button class="btn small" data-act="dup" data-id="' + esc(last.id) + '" title="Ajouter une séance aujourd\'hui à partir de la dernière">' + JG.icon('plus') + 'Nouvelle séance</button></header>' +
       sessionHTML(last, u) +
-      (older.length ? '<details data-k="' + esc(k) + '"' + (openGroups.has(k) ? ' open' : '') + '><summary>Séances précédentes (' + older.length + ')</summary>' +
+      (older.length ? '<details data-k="' + esc(k) + '"' + (openGroups.has(k) ? ' open' : '') + '><summary>Séances précédentes <span class="n">' + older.length + '</span></summary>' +
         older.map(w => sessionHTML(w, u)).join('') + '</details>' : '') +
       '</article>';
   });
@@ -223,20 +222,20 @@ function renderExercises() {
   $('ed-ex').innerHTML = draft.exercises.map((ex, i) => {
     const t = TYPES[ex.type] || TYPES.ex;
     const head = '<div class="ex ' + esc(ex.type) + '" data-i="' + i + '">' +
-      (isEx(ex) ? '' : '<div class="tag ' + esc(ex.type) + '">' + t.label + '</div>') +
+      (isEx(ex) ? '' : '<div class="tag">' + t.label + '</div>') +
       '<div class="ex-head"><input class="ex-name" type="text" list="' + t.list + '" autocomplete="off" placeholder="' + esc(t.ph) + '" aria-label="Nom" value="' + esc(ex.name) + '">' +
-      '<button class="icon" data-act="del-ex" type="button" title="Retirer" aria-label="Retirer">✕</button></div>';
+      '<button class="icon" data-act="del-ex" type="button" title="Retirer" aria-label="Retirer">' + JG.icon('x') + '</button></div>';
     if (!isEx(ex)) return head +
-      '<input class="ex-detail" type="text" autocomplete="off" style="margin-top:8px" placeholder="Durée ou détails (ex. 5 min)" aria-label="Durée ou détails" value="' + esc(ex.detail) + '"></div>';
+      '<input class="ex-detail" type="text" autocomplete="off" placeholder="Durée ou détails (ex. 5 min)" aria-label="Durée ou détails" value="' + esc(ex.detail) + '"></div>';
     return head +
       '<div class="hint">' + esc(hintFor(ex.name)) + '</div>' +
-      '<div class="set-row head"><span class="n">Set</span><span style="text-align:center">Reps</span><span style="text-align:center">Poids (' + u + ')</span><span></span></div>' +
+      '<div class="set-row head"><span>Set</span><span>Reps</span><span>Poids (' + u + ')</span><span></span></div>' +
       ex.sets.map((s, j) =>
         '<div class="set-row" data-j="' + j + '"><span class="n">' + (j + 1) + '</span>' +
         '<input class="reps" type="text" inputmode="numeric" aria-label="Reps du set ' + (j + 1) + '" value="' + esc(s.reps) + '">' +
         '<input class="wt" type="text" inputmode="decimal" aria-label="Poids du set ' + (j + 1) + '" value="' + esc(s.weight) + '">' +
-        '<button class="icon" data-act="del-set" type="button" title="Retirer le set" aria-label="Retirer le set">✕</button></div>').join('') +
-      '<button class="btn small add-set" data-act="add-set" type="button">＋ Set</button>' +
+        '<button class="icon" data-act="del-set" type="button" title="Retirer le set" aria-label="Retirer le set">' + JG.icon('x') + '</button></div>').join('') +
+      '<button class="btn small add-set" data-act="add-set" type="button">' + JG.icon('plus') + 'Set</button>' +
     '</div>';
   }).join('');
 }
@@ -358,6 +357,7 @@ $('btn-install').addEventListener('click', async () => {
 
 JG.onChange(() => { if (draft) renderSync(); else render(); });
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+JG.hydrateIcons();
 JG.init();
 render();
 </script>

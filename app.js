@@ -234,6 +234,37 @@ const JG = (() => {
     return rows.join('\r\n');
   }
 
+  // ---------- interface partagée (icônes, état de synchro) ----------
+  /* Icônes lucide (trait 1,5). Dans le HTML : <i data-icon="plus"></i>, remplacé au chargement. */
+  const ICONS = {
+    plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+    alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    book: '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+    chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/>',
+    user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    download: '<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>'
+  };
+  const icon = n => '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
+  function hydrateIcons() { document.querySelectorAll('[data-icon]').forEach(el => { el.outerHTML = icon(el.dataset.icon); }); }
+
+  /* Remplit #who, #sync (état court, dans l'en-tête) et #notice (explication, seulement hors ligne ou en erreur). */
+  function paintStatus(offlineMsg) {
+    const on = connected(), s = status;
+    const who = document.getElementById('who'), sync = document.getElementById('sync'), notice = document.getElementById('notice');
+    const short = { loading: 'Chargement…', saving: 'Enregistrement…', ok: 'Synchronisé', offline: 'Hors ligne', error: 'Synchro en erreur' }[s.state];
+    if (who) who.textContent = on ? login() : '';
+    if (sync) {
+      sync.innerHTML = on && short ? '<span class="dot"></span>' + esc(short) : '';
+      sync.className = s.state === 'error' ? 'error' : s.state === 'ok' ? 'ok' : '';
+    }
+    if (notice) {
+      const msg = !on ? '' : s.state === 'offline' ? offlineMsg : s.state === 'error' ? s.msg : '';
+      notice.innerHTML = msg ? (s.state === 'error' ? icon('alert') : '') + '<span>' + esc(msg) + '</span>' : '';
+      notice.className = 'notice' + (s.state === 'error' ? ' error' : '') + (msg ? '' : ' hidden');
+    }
+  }
+
   function init() {
     loadCache();
     if (connected()) sync();
@@ -246,6 +277,7 @@ const JG = (() => {
   return { init, connect, disconnect, connected, login, repo, sync, onChange: f => listeners.push(f), status: () => status,
     workouts, getWorkout, saveWorkout, deleteWorkout, unit, setUnit,
     history, records, e1rm, setsSummary, workoutVolume, toCSV,
+    icon, hydrateIcons, paintStatus,
     esc, uid, today, toDate, fmtDate, fmtNum, num, key, _merge: merge };
 })();
 if (typeof module !== 'undefined') module.exports = JG;

@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stats – Journal de gym</title>
-<meta name="theme-color" content="#d9480f">
+<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141415" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -12,19 +13,22 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Gym">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" crossorigin>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>Journal de gym <small id="who"></small></h1>
+    <h1 class="brand"><img src="icon.svg" alt="" width="24" height="24">Journal de gym</h1>
     <nav class="tabs">
-      <a class="btn" href="index.html">Journal</a>
-      <a class="btn active" href="stats.html">Stats</a>
-      <a class="btn hidden" id="tab-compte" href="index.html#compte">Compte</a>
+      <a class="tab" href="index.html"><i data-icon="book"></i>Journal</a>
+      <a class="tab active" href="stats.html"><i data-icon="chart"></i>Stats</a>
+      <a class="tab hidden" id="tab-compte" href="index.html#compte"><i data-icon="user"></i>Compte</a>
     </nav>
+    <div class="meta"><span id="who"></span><span id="sync" role="status"></span></div>
   </header>
-  <div id="sync" role="status"></div>
+  <div id="notice" class="notice hidden"></div>
 
   <div class="card empty hidden" id="need-login">Connecte d'abord ton journal sur la page <a href="index.html">Journal</a>.</div>
   <div class="card empty hidden" id="need-data">Pas encore de données. Ajoute un entraînement dans le <a href="index.html">Journal</a> et tes stats apparaîtront ici.</div>
@@ -32,26 +36,29 @@
   <div id="stats" class="hidden">
     <div class="tiles" id="tiles"></div>
 
+    <div class="stats-grid">
     <section class="card">
-      <div class="row spread">
-        <h2 style="margin:0">Progression par exercice</h2>
-        <select id="sel-ex" style="width:auto;max-width:100%" aria-label="Exercice"></select>
+      <div class="card-head">
+        <h2>Progression par exercice</h2>
+        <select id="sel-ex" class="auto" aria-label="Exercice"></select>
       </div>
-      <p class="muted small" id="prog-sum" style="margin:8px 0 0"></p>
+      <p class="sub fig" id="prog-sum"></p>
+      <div class="legend" id="legend"></div>
       <div class="chartbox"><canvas id="chart" role="img" aria-label="Progression du poids maximal et du 1RM estimé"></canvas></div>
-      <p class="muted small" style="margin:10px 0 0">1RM estimé = poids × (1 + reps ÷ 30) (formule d'Epley), meilleur set de chaque séance.</p>
-      <div class="tablewrap" style="margin-top:12px">
+      <p class="caption">1RM estimé = poids × (1 + reps ÷ 30), formule d'Epley, sur le meilleur set de chaque séance</p>
+      <div class="tablewrap">
         <table class="rt"><thead><tr><th>Séance</th><th>Sets</th><th>Poids max</th><th>1RM estimé</th><th>Volume</th></tr></thead><tbody id="sess"></tbody></table>
       </div>
     </section>
 
     <section class="card">
       <h2>Records personnels</h2>
-      <p class="muted small" style="margin:-4px 0 8px">Touche un exercice pour voir sa progression.</p>
+      <p class="sub">Choisis un exercice pour voir sa progression</p>
       <div class="tablewrap">
         <table class="rt"><thead><tr><th>Exercice</th><th>Poids max</th><th>1RM estimé</th><th>Reps max</th><th>Volume / séance</th><th>Séances</th></tr></thead><tbody id="recs"></tbody></table>
       </div>
     </section>
+    </div>
   </div>
 </div>
 
@@ -67,11 +74,8 @@ function css(v) { return getComputedStyle(document.documentElement).getPropertyV
 
 function render() {
   const on = JG.connected(), ws = on ? JG.workouts() : [];
-  $('who').textContent = on ? 'Journal de ' + JG.login() : '';
   $('tab-compte').classList.toggle('hidden', !on);
-  const s = JG.status();
-  $('sync').textContent = on ? ({ loading: 'Chargement…', saving: 'Enregistrement…', ok: 'Synchronisé ✓', offline: 'Hors ligne – dernières données connues.', error: '⚠ ' + s.msg }[s.state] || '') : '';
-  $('sync').className = s.state === 'error' ? 'error' : s.state === 'ok' ? 'ok' : '';
+  JG.paintStatus('Tu vois les dernières données connues');
   const recs = on ? JG.records() : [];
   $('need-login').classList.toggle('hidden', on);
   $('need-data').classList.toggle('hidden', !on || recs.length > 0);
@@ -89,7 +93,7 @@ function render() {
   $('tiles').innerHTML =
     tile('Séances', ws.length, 'depuis le ' + esc(JG.fmtDate(ws[ws.length - 1].date))) +
     tile('Ce mois-ci', month, last30 + ' sur les 30 derniers jours') +
-    tile('Exercices différents', recs.length, '') +
+    tile('Exercices différents', recs.length, 'le plus fréquent : ' + esc(recs[0].name)) +
     tile('Volume total', f(vol), u + ' soulevés (reps × poids)');
 
   // sélecteur
@@ -98,7 +102,7 @@ function render() {
 
   // records
   const cell = (v, d) => v ? v + '<span class="d">' + esc(JG.fmtDate(d)) + '</span>' : '–';
-  $('recs').innerHTML = recs.map(r => '<tr class="click" data-k="' + esc(r.key) + '"><td><b>' + esc(r.name) + '</b></td>' +
+  $('recs').innerHTML = recs.map(r => '<tr class="click' + (r.key === current ? ' current' : '') + '" data-k="' + esc(r.key) + '"><td><b>' + esc(r.name) + '</b></td>' +
     '<td data-label="Poids max">' + cell(r.maxW ? f(r.maxW) + ' ' + u + ' × ' + r.maxWReps : '', r.maxWDate) + '</td>' +
     '<td data-label="1RM estimé">' + cell(r.e1rm ? f(r.e1rm) + ' ' + u : '', r.e1rmDate) + '</td>' +
     '<td data-label="Reps max">' + cell(r.maxReps ? String(r.maxReps) : '', r.maxRepsDate) + '</td>' +
@@ -120,23 +124,33 @@ function renderProgress(hist, u) {
   $('prog-sum').textContent = sum;
 
   // tableau des séances (récentes d'abord), records en évidence
-  let bestW = 0, bestE = 0; const prW = new Set(), prE = new Set();
-  ss.forEach((s, i) => { if (s.maxW > bestW) { bestW = s.maxW; if (i) prW.add(i); } if (s.e1rm > bestE) { bestE = s.e1rm; if (i) prE.add(i); } });
+  let bestW = 0, bestE = 0, bestR = 0; const prW = new Set(), prE = new Set(), prR = new Set();
+  ss.forEach((s, i) => { if (s.maxW > bestW) { bestW = s.maxW; if (i) prW.add(i); } if (s.e1rm > bestE) { bestE = s.e1rm; if (i) prE.add(i); } if (s.maxReps > bestR) { bestR = s.maxReps; if (i) prR.add(i); } });
+  const mark = on => on ? '<i class="pr-mark" title="Record"></i>' : '';
+  document.querySelectorAll('#recs tr').forEach(tr => tr.classList.toggle('current', tr.dataset.k === current));
   $('sess').innerHTML = ss.map((s, i) => '<tr><td>' + esc(JG.fmtDate(s.date)) + '</td><td class="wide">' + esc(JG.setsSummary(s.sets, '')) + '</td>' +
-    '<td data-label="Poids max" class="' + (prW.has(i) ? 'pr' : '') + '">' + (s.maxW ? f(s.maxW) + ' × ' + s.maxWReps : '–') + (prW.has(i) ? ' ★' : '') + '</td>' +
-    '<td data-label="1RM estimé" class="' + (prE.has(i) ? 'pr' : '') + '">' + (s.e1rm ? f(s.e1rm) : '–') + (prE.has(i) ? ' ★' : '') + '</td>' +
+    '<td data-label="Poids max" class="' + (prW.has(i) ? 'pr' : '') + '">' + mark(prW.has(i)) + (s.maxW ? f(s.maxW) + ' × ' + s.maxWReps : '–') + '</td>' +
+    '<td data-label="1RM estimé" class="' + (prE.has(i) ? 'pr' : '') + '">' + mark(prE.has(i)) + (s.e1rm ? f(s.e1rm) : '–') + '</td>' +
     '<td data-label="Volume">' + (s.volume ? f(s.volume) : '–') + '</td></tr>').reverse().join('');
 
   // graphique
   if (typeof Chart === 'undefined') return;
   const x = s => JG.toDate(s.date).getTime();
-  const accent = css('--accent'), ink = css('--text'), muted = css('--muted'), line = css('--line');
+  const accent = css('--accent'), muted = css('--muted'), line = css('--line'), card = css('--card');
+  const mono = css('--mono'), sans = css('--sans');
+  // La série suivie porte l'accent ; un record est un carré plein, les autres points sont creux.
+  const main = (label, val, pr) => ({ label, data: ss.map(s => ({ x: x(s), y: val(s) })), borderColor: accent, borderWidth: 2, tension: .2,
+    pointStyle: ss.map((s, i) => pr.has(i) ? 'rect' : 'circle'), pointRadius: ss.map((s, i) => pr.has(i) ? 5 : 3), pointHoverRadius: 6,
+    pointBackgroundColor: ss.map((s, i) => pr.has(i) ? accent : card), pointBorderColor: accent, pointBorderWidth: 2 });
   const datasets = weighted ? [
-    { label: 'Poids max (' + u + ')', data: ss.map(s => ({ x: x(s), y: s.maxW })), borderColor: accent, backgroundColor: accent, borderWidth: 2.5, pointRadius: 4, tension: .15 },
-    { label: '1RM estimé (' + u + ')', data: ss.map(s => ({ x: x(s), y: Math.round(s.e1rm * 10) / 10 })), borderColor: muted, backgroundColor: muted, borderWidth: 2, borderDash: [6, 4], pointRadius: 3, pointStyle: 'rectRot', tension: .15 }
+    main('Poids max (' + u + ')', s => s.maxW, prW),
+    { label: '1RM estimé (' + u + ')', data: ss.map(s => ({ x: x(s), y: Math.round(s.e1rm * 10) / 10 })), borderColor: muted, backgroundColor: muted, borderWidth: 1.5, borderDash: [4, 4], pointRadius: 0, pointHoverRadius: 3, tension: .2 }
   ] : [
-    { label: 'Reps max', data: ss.map(s => ({ x: x(s), y: s.maxReps })), borderColor: accent, backgroundColor: accent, borderWidth: 2.5, pointRadius: 4, tension: .15 }
+    main('Reps max', s => s.maxReps, prR)
   ];
+  $('legend').innerHTML = '<span><i class="lg"></i>' + esc(datasets[0].label) + '</span>' +
+    (weighted ? '<span><i class="lg dash"></i>' + esc(datasets[1].label) + '</span>' : '') +
+    ((weighted ? prW : prR).size ? '<span><i class="pr-mark" style="margin:0"></i>Record</span>' : '');
   const day = 864e5, pad = ss.length > 1 ? Math.max(day, (x(last) - x(first)) * .04) : 3 * day;
   if (chart) chart.destroy();
   chart = new Chart($('chart'), {
@@ -144,13 +158,13 @@ function renderProgress(hist, u) {
     options: {
       responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'nearest', intersect: false },
       scales: {
-        x: { type: 'linear', min: x(first) - pad, max: x(last) + pad, grid: { color: line },
-          ticks: { color: muted, maxTicksLimit: 7, callback: v => new Date(v).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' }) } },
-        y: { grid: { color: line }, ticks: { color: muted }, title: { display: true, text: weighted ? u : 'reps', color: muted } }
+        x: { type: 'linear', min: x(first) - pad, max: x(last) + pad, grid: { display: false }, border: { color: line },
+          ticks: { color: muted, font: { family: mono, size: 11 }, maxTicksLimit: 7, callback: v => new Date(v).toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' }) } },
+        y: { grid: { color: line }, border: { display: false }, ticks: { color: muted, font: { family: mono, size: 11 }, maxTicksLimit: 6, padding: 8 } }
       },
       plugins: {
-        legend: { labels: { color: ink, usePointStyle: true } },
-        tooltip: { callbacks: { title: items => new Date(items[0].parsed.x).toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' }) } }
+        legend: { display: false },
+        tooltip: { titleFont: { family: sans, weight: '500' }, bodyFont: { family: mono, size: 12 }, padding: 12, cornerRadius: 8, boxPadding: 4, usePointStyle: true, callbacks: { title: items => new Date(items[0].parsed.x).toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' }) } }
       }
     }
   });
@@ -165,8 +179,10 @@ $('recs').addEventListener('click', e => {
 window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
 JG.onChange(render);
 if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+JG.hydrateIcons();
 JG.init();
 render();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);   // le graphique reprend la police une fois chargée
 </script>
 </body>
 </html>
