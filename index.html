@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Journal de gym</title>
-<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#141415" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef3fc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c1326" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -174,7 +174,7 @@ function renderList() {
     const last = list[0], older = list.slice(1);
     html += '<article class="card w">' +
       '<header><div><h3>' + esc(last.name) + '</h3><div class="small">' + list.length + ' séance' + (list.length > 1 ? 's' : '') + '</div></div>' +
-      '<button class="btn small" data-act="dup" data-id="' + esc(last.id) + '" title="Ajouter une séance aujourd\'hui à partir de la dernière">' + JG.icon('plus') + 'Nouvelle séance</button></header>' +
+      '<button class="btn small soft" data-act="dup" data-id="' + esc(last.id) + '" title="Ajouter une séance aujourd\'hui à partir de la dernière">' + JG.icon('plus') + 'Nouvelle séance</button></header>' +
       sessionHTML(last, u) +
       (older.length ? '<details data-k="' + esc(k) + '"' + (openGroups.has(k) ? ' open' : '') + '><summary>Séances précédentes <span class="n">' + older.length + '</span></summary>' +
         older.map(w => sessionHTML(w, u)).join('') + '</details>' : '') +

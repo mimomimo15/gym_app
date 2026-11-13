@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stats – Journal de gym</title>
-<meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#141415" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef3fc" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0c1326" media="(prefers-color-scheme: dark)">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
@@ -139,7 +139,7 @@ function renderProgress(hist, u) {
   const accent = css('--accent'), muted = css('--muted'), line = css('--line'), card = css('--card');
   const mono = css('--mono'), sans = css('--sans');
   // La série suivie porte l'accent ; un record est un carré plein, les autres points sont creux.
-  const main = (label, val, pr) => ({ label, data: ss.map(s => ({ x: x(s), y: val(s) })), borderColor: accent, borderWidth: 2, tension: .2,
+  const main = (label, val, pr) => ({ label, data: ss.map(s => ({ x: x(s), y: val(s) })), borderColor: accent, borderWidth: 2, tension: .2, fill: 'start', backgroundColor: accent + '24',
     pointStyle: ss.map((s, i) => pr.has(i) ? 'rect' : 'circle'), pointRadius: ss.map((s, i) => pr.has(i) ? 5 : 3), pointHoverRadius: 6,
     pointBackgroundColor: ss.map((s, i) => pr.has(i) ? accent : card), pointBorderColor: accent, pointBorderWidth: 2 });
   const datasets = weighted ? [

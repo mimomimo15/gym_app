@@ -1,7 +1,7 @@
 /* Journal de gym – service worker : rend le site installable et utilisable hors ligne.
    Fichiers du site : réseau d'abord (les mises à jour arrivent tout de suite), cache en secours.
    Les appels à l'API GitHub (données, jeton) ne passent jamais par le cache. */
-const CACHE = 'jg-v6';
+const CACHE = 'jg-v8';
 const CHART = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
 const FONTS = 'https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap';
 const SHELL = ['./', 'index.html', 'stats.html', 'app.js', 'style.css', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-512.png', CHART, FONTS];
