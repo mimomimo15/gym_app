@@ -93,6 +93,11 @@
     <div class="note-field"><label class="f" for="ed-note">Note</label><textarea id="ed-note" placeholder="Comment ça s'est passé ?"></textarea></div>
     <div class="err" id="ed-err"></div>
     <div class="editor-actions">
+      <div id="timer" class="timer hidden" role="timer">
+        <div class="timer-info"><span id="timer-label" aria-live="polite"></span><span id="timer-time" class="timer-time"></span></div>
+        <button class="btn small" id="timer-stop" type="button">Arrêter</button>
+        <div class="timer-bar" aria-hidden="true"><i id="timer-fill"></i></div>
+      </div>
       <div class="row"><button class="btn primary" id="btn-save" type="button">Enregistrer</button><button class="btn" id="btn-cancel" type="button">Annuler</button></div>
       <button class="btn danger hidden" id="btn-delete" type="button">Supprimer</button>
     </div>
@@ -150,9 +155,12 @@ function sessionHTML(w, u) {
   return '<div class="sess">' +
     '<div class="sess-head"><span class="w-date">' + esc(JG.fmtDate(w.date, true)) + '</span>' +
     '<button class="btn small ghost" data-act="edit" data-id="' + esc(w.id) + '">Modifier</button></div>' +
-    (w.exercises.length ? '<ul>' + w.exercises.map(ex => isEx(ex)
-      ? '<li><b>' + esc(ex.name) + '</b><span class="sets">' + esc(JG.setsSummary(ex.sets, u, ex.measure)) + '</span></li>'
-      : '<li class="extra"><span><span class="tag">' + TYPES[ex.type].label + '</span><b>' + esc(ex.name) + '</b></span><span class="sets">' + esc(ex.detail || '') + '</span></li>').join('') + '</ul>' : '') +
+    (w.exercises.length ? '<ul>' + w.exercises.map(ex => {
+      const note = ex.note ? '<span class="li-note">' + esc(ex.note) + '</span>' : '';
+      return isEx(ex)
+        ? '<li><span class="li-name"><b>' + esc(ex.name) + '</b>' + note + '</span><span class="sets">' + esc(JG.setsSummary(ex.sets, u, ex.measure)) + '</span></li>'
+        : '<li class="extra"><span class="li-name"><span><span class="tag">' + TYPES[ex.type].label + '</span><b>' + esc(ex.name) + '</b></span>' + note + '</span><span class="sets">' + esc(ex.detail || '') + '</span></li>';
+    }).join('') + '</ul>' : '') +
     (w.note ? '<p class="note">' + esc(w.note) + '</p>' : '') +
     '<footer>' + nEx + ' exercice' + (nEx > 1 ? 's' : '') + ' · ' + nSets + ' set' + (nSets > 1 ? 's' : '') +
     (nWarm ? ' · ' + nWarm + ' échauffement' + (nWarm > 1 ? 's' : '') : '') + (nStr ? ' · ' + nStr + ' étirement' + (nStr > 1 ? 's' : '') : '') +
@@ -186,14 +194,14 @@ function renderList() {
 
 /* ---------- éditeur ---------- */
 const blankSet = () => ({ reps: '', weight: '', sec: '' });
-const blankEx = type => ({ type: type || 'ex', measure: '', name: '', detail: '', sets: (type || 'ex') === 'ex' ? [blankSet()] : [] });
+const blankEx = type => ({ type: type || 'ex', measure: '', name: '', detail: '', note: '', sets: (type || 'ex') === 'ex' ? [blankSet()] : [] });
 /* Mesure d'un exercice : '' = reps + poids, 'time' = durée de chaque set, 'steps' = nombre de pas (+ poids facultatif) */
 const MEASURES = [['', () => JG.unit()], ['time', () => 'Temps'], ['steps', () => 'Pas']];
 
 function openEditor(w, asCopy) {
   if (w) {
     draft = { id: asCopy ? null : w.id, createdAt: asCopy ? null : w.createdAt, date: asCopy ? JG.today() : w.date, name: w.name, note: asCopy ? '' : (w.note || ''),
-      exercises: w.exercises.map(ex => ({ type: ex.type || 'ex', measure: ex.measure || '', detail: ex.detail || '', name: ex.name,
+      exercises: w.exercises.map(ex => ({ type: ex.type || 'ex', measure: ex.measure || '', detail: ex.detail || '', note: ex.note || '', name: ex.name,
         sets: ex.sets.map(s => ({ reps: s.reps ? String(s.reps) : '', weight: s.weight ? String(s.weight).replace('.', ',') : '', sec: s.sec ? String(s.sec) : '' })) })) };
   } else {
     draft = { id: null, date: JG.today(), name: '', note: '', exercises: [blankEx()] };
@@ -237,12 +245,89 @@ function refreshDemo(exEl, ex) {
   if (open) JGMoves.start();
 }
 
+/* ---------- minuteur des sets en Temps ----------
+   Un seul décompte à la fois. Il se base sur l'heure de fin, donc reste juste si l'écran se met en veille.
+   Bips aux 3 dernières secondes et à la fin (Web Audio ; muet si l'iPhone est en mode silencieux),
+   vibration là où elle existe, et l'écran reste allumé pendant le décompte quand le navigateur le permet. */
+const timer = { ex: null, j: -1, total: 0, end: 0, iv: 0, hide: 0, ctx: null, wake: null, last: -1 };
+const timerOn = (ex, j) => !!timer.iv && timer.ex === ex && timer.j === j;
+const fmtClock = s => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+
+function timerBtnHTML(ex, j) {
+  const on = timerOn(ex, j);
+  return '<button class="icon timer-btn" data-act="timer" type="button" aria-pressed="' + on + '" title="' + (on ? 'Arrêter le minuteur' : 'Démarrer le minuteur') + '" aria-label="' + (on ? 'Arrêter le minuteur' : 'Démarrer le minuteur du set ' + (j + 1)) + '">' + JG.icon(on ? 'stop' : 'timer') + '</button>';
+}
+function paintTimerBtns() {
+  document.querySelectorAll('#ed-ex .timer-btn').forEach(b => {
+    const ex = draft && draft.exercises[+b.closest('.ex').dataset.i], j = +b.closest('.set-row').dataset.j;
+    b.outerHTML = timerBtnHTML(ex, j);
+  });
+}
+function beep(freq, dur, delay) {
+  const c = timer.ctx; if (!c) return;
+  const t = c.currentTime + (delay || 0), o = c.createOscillator(), g = c.createGain();
+  o.type = 'sine'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.4, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.05);
+}
+async function keepAwake(on) {
+  try {
+    if (on && 'wakeLock' in navigator && !timer.wake) { timer.wake = await navigator.wakeLock.request('screen'); timer.wake.addEventListener('release', () => { timer.wake = null; }); }
+    if (!on && timer.wake) { await timer.wake.release(); timer.wake = null; }
+  } catch (e) { /* non disponible : sans importance */ }
+}
+function showTimer(label, secs, frac, done) {
+  $('timer').classList.remove('hidden'); $('timer').classList.toggle('done', !!done);
+  if ($('timer-label').textContent !== label) $('timer-label').textContent = label;
+  $('timer-time').textContent = done ? 'Terminé !' : fmtClock(secs);
+  $('timer-fill').style.width = (frac * 100).toFixed(1) + '%';
+  $('timer-stop').textContent = done ? 'OK' : 'Arrêter';
+}
+function startTimer(ex, j) {
+  stopTimer();
+  const sec = JG.parseSec(ex.sets[j] && ex.sets[j].sec);
+  const label = (ex.name.trim() || 'Exercice') + ' · set ' + (j + 1);
+  if (!(sec > 0)) { showTimer(label + ' : entre d\'abord un temps', 0, 0); $('timer-time').textContent = ''; timer.hide = setTimeout(stopTimer, 3000); return; }
+  // Le son doit être « débloqué » pendant le toucher (exigence d'iOS)
+  try { timer.ctx = timer.ctx || new (window.AudioContext || window.webkitAudioContext)(); timer.ctx.resume(); beep(880, 0.08); } catch (e) { timer.ctx = null; }
+  Object.assign(timer, { ex, j, total: sec, end: Date.now() + sec * 1000, last: -1 });
+  timer.iv = setInterval(tickTimer, 200);
+  keepAwake(true); tickTimer(); paintTimerBtns();
+}
+function tickTimer() {
+  const ms = timer.end - Date.now(), left = Math.max(0, Math.ceil(ms / 1000));
+  const label = (timer.ex.name.trim() || 'Exercice') + ' · set ' + (timer.j + 1);
+  if (ms <= 0) return finishTimer(label);
+  if (left <= 3 && left !== timer.last) beep(660, 0.12);
+  timer.last = left;
+  showTimer(label, left, 1 - ms / (timer.total * 1000));
+}
+function finishTimer(label) {
+  clearInterval(timer.iv); timer.iv = 0;
+  beep(990, 0.25); beep(990, 0.25, 0.35); beep(1320, 0.5, 0.7);
+  try { if (navigator.vibrate) navigator.vibrate([300, 120, 300]); } catch (e) { /* pas de vibration */ }
+  showTimer(label, 0, 1, true);
+  keepAwake(false); paintTimerBtns();
+  timer.hide = setTimeout(stopTimer, 6000);
+}
+function stopTimer() {
+  clearInterval(timer.iv); clearTimeout(timer.hide); timer.iv = 0; timer.hide = 0; timer.ex = null; timer.j = -1;
+  $('timer').classList.add('hidden'); $('timer').classList.remove('done');
+  keepAwake(false); paintTimerBtns();
+}
+$('timer-stop').addEventListener('click', stopTimer);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !timer.iv) return;
+  keepAwake(true); tickTimer();   // retour dans l'app : l'écran allumé est redemandé, le décompte se recale
+});
+
 // Lignes de sets selon la mesure : reps + poids, durée seule, ou pas + poids facultatif
 function setRowsHTML(ex, u) {
   const del = '<button class="icon" data-act="del-set" type="button" title="Retirer le set" aria-label="Retirer le set">' + JG.icon('x') + '</button>';
-  if (ex.measure === 'time') return '<div class="set-row one head"><span>Set</span><span>Temps (secondes)</span><span></span></div>' +
-    ex.sets.map((s, j) => '<div class="set-row one" data-j="' + j + '"><span class="n">' + (j + 1) + '</span>' +
-      '<input class="sec" type="text" inputmode="numeric" placeholder="ex. 45" aria-label="Temps du set ' + (j + 1) + ', en secondes" value="' + esc(s.sec) + '">' + del + '</div>').join('');
+  if (ex.measure === 'time') return '<div class="set-row timed head"><span>Set</span><span>Temps (secondes)</span><span></span><span></span></div>' +
+    ex.sets.map((s, j) => '<div class="set-row timed" data-j="' + j + '"><span class="n">' + (j + 1) + '</span>' +
+      '<input class="sec" type="text" inputmode="numeric" placeholder="ex. 45" aria-label="Temps du set ' + (j + 1) + ', en secondes" value="' + esc(s.sec) + '">' +
+      timerBtnHTML(ex, j) + del + '</div>').join('');
   const what = ex.measure === 'steps' ? 'Pas' : 'Reps';
   return '<div class="set-row head"><span>Set</span><span>' + what + '</span><span>Poids (' + u + ')' + '</span><span></span></div>' +
     ex.sets.map((s, j) => '<div class="set-row" data-j="' + j + '"><span class="n">' + (j + 1) + '</span>' +
@@ -261,9 +346,10 @@ function renderExercises() {
       '<button class="icon" data-act="del-ex" type="button" title="Retirer" aria-label="Retirer">' + JG.icon('x') + '</button></div>';
     const mv = ex._demo && JGMoves.find(ex.name);
     const slot = '<div class="demo-slot" data-mv="' + (mv || '') + '">' + (mv ? JGMoves.panel(mv) : '') + '</div>';
+    const note = '<input class="ex-note" type="text" autocomplete="off" placeholder="Note (ex. par jambe, élastique rouge)" aria-label="Note sur l\'exercice" value="' + esc(ex.note) + '">';
     if (!isEx(ex)) return head + slot +
-      '<input class="ex-detail" type="text" autocomplete="off" placeholder="Durée ou détails (ex. 5 min)" aria-label="Durée ou détails" value="' + esc(ex.detail) + '"></div>';
-    return head + slot +
+      '<input class="ex-detail" type="text" autocomplete="off" placeholder="Durée ou détails (ex. 5 min)" aria-label="Durée ou détails" value="' + esc(ex.detail) + '">' + note + '</div>';
+    return head + note + slot +
       '<div class="hint">' + esc(hintFor(ex.name)) + '</div>' +
       '<div class="measure" role="group" aria-label="Mesure">' + MEASURES.map(([m, label]) =>
         '<button type="button" data-act="measure" data-m="' + m + '" aria-pressed="' + (ex.measure === m) + '">' + esc(label()) + '</button>').join('') + '</div>' +
@@ -279,6 +365,7 @@ $('ed-ex').addEventListener('input', e => {
   const ex = draft.exercises[+exEl.dataset.i];
   if (e.target.classList.contains('ex-name')) { ex.name = e.target.value; const h = exEl.querySelector('.hint'); if (h) h.textContent = hintFor(ex.name); refreshDemo(exEl, ex); return; }
   if (e.target.classList.contains('ex-detail')) { ex.detail = e.target.value; return; }
+  if (e.target.classList.contains('ex-note')) { ex.note = e.target.value; return; }
   const row = e.target.closest('.set-row'); if (!row) return;
   const s = ex.sets[+row.dataset.j];
   if (e.target.classList.contains('reps')) s.reps = e.target.value;
@@ -291,8 +378,11 @@ $('ed-ex').addEventListener('click', e => {
   const exEl = b.closest('.ex'), i = +exEl.dataset.i, ex = draft.exercises[i];
   if (b.dataset.act === 'demo') {
     ex._demo = !ex._demo; refreshDemo(exEl, ex);
+  } else if (b.dataset.act === 'timer') {
+    const j = +b.closest('.set-row').dataset.j;
+    if (timerOn(ex, j)) stopTimer(); else startTimer(ex, j);
   } else if (b.dataset.act === 'measure') {
-    ex.measure = b.dataset.m; renderExercises();
+    stopTimer(); ex.measure = b.dataset.m; renderExercises();
   } else if (b.dataset.act === 'add-set') {
     const last = ex.sets[ex.sets.length - 1];
     ex.sets.push(last ? { reps: last.reps, weight: last.weight, sec: last.sec } : blankSet());   // recopie le set précédent
@@ -300,9 +390,9 @@ $('ed-ex').addEventListener('click', e => {
     const rows = $('ed-ex').querySelectorAll('.ex[data-i="' + i + '"] .set-row[data-j]');
     const inp = rows[rows.length - 1].querySelector('input'); inp.focus(); inp.select();
   } else if (b.dataset.act === 'del-set') {
-    ex.sets.splice(+b.closest('.set-row').dataset.j, 1); renderExercises();
+    stopTimer(); ex.sets.splice(+b.closest('.set-row').dataset.j, 1); renderExercises();
   } else if (b.dataset.act === 'del-ex') {
-    draft.exercises.splice(i, 1); renderExercises();
+    stopTimer(); draft.exercises.splice(i, 1); renderExercises();
   }
 });
 
@@ -316,12 +406,12 @@ function collect() {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Choisis une date.');
   const exercises = [];
   for (const ex of draft.exercises) {
-    const name = ex.name.trim(), sets = [];
+    const name = ex.name.trim(), sets = [], note = String(ex.note || '').trim();
     if (!isEx(ex)) {
       const detail = String(ex.detail || '').trim();
-      if (!name && !detail) continue;
+      if (!name && !detail && !note) continue;
       if (!name) throw new Error('Donne un nom à chaque ' + TYPES[ex.type].label.toLowerCase() + '.');
-      exercises.push({ type: ex.type, name, detail, sets: [] });
+      exercises.push(Object.assign({ type: ex.type, name, detail, sets: [] }, note ? { note } : {}));
       continue;
     }
     const pour = name ? ' pour « ' + name + ' »' : '';
@@ -340,9 +430,9 @@ function collect() {
       if (!(weight >= 0)) throw new Error('Poids invalide' + pour + '.');
       sets.push({ reps, weight });
     }
-    if (!name && !sets.length) continue;
+    if (!name && !sets.length && !note) continue;
     if (!name) throw new Error('Donne un nom à chaque exercice.');
-    exercises.push(ex.measure ? { name, measure: ex.measure, sets } : { name, sets });
+    exercises.push(Object.assign({ name }, ex.measure ? { measure: ex.measure } : {}, note ? { note } : {}, { sets }));
   }
   const name = $('ed-name').value.trim() || 'Entraînement';
   if (!exercises.length && !$('ed-name').value.trim()) throw new Error('Ajoute au moins un élément ou un nom.');
@@ -350,17 +440,17 @@ function collect() {
 }
 
 $('btn-save').addEventListener('click', () => {
-  try { const w = collect(); draft = null; JG.saveWorkout(w); render(); window.scrollTo(0, 0); }
+  try { const w = collect(); stopTimer(); draft = null; JG.saveWorkout(w); render(); window.scrollTo(0, 0); }
   catch (e) { $('ed-err').textContent = e.message; }
 });
-$('btn-cancel').addEventListener('click', () => { draft = null; render(); });
+$('btn-cancel').addEventListener('click', () => { stopTimer(); draft = null; render(); });
 
 let armTimer = null;
 function disarm() { const b = $('btn-delete'); b.classList.remove('armed'); b.textContent = 'Supprimer'; clearTimeout(armTimer); }
 $('btn-delete').addEventListener('click', () => {
   const b = $('btn-delete');
   if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Confirmer la suppression'; armTimer = setTimeout(disarm, 4000); return; }
-  const id = draft.id; draft = null; JG.deleteWorkout(id); render();
+  const id = draft.id; stopTimer(); draft = null; JG.deleteWorkout(id); render();
 });
 
 /* ---------- liste, compte, connexion ---------- */
@@ -374,11 +464,11 @@ $('list').addEventListener('toggle', e => {
   const k = e.target.dataset && e.target.dataset.k; if (!k) return;
   if (e.target.open) openGroups.add(k); else openGroups.delete(k);
 }, true);
-function setAccount(v) { showAccount = v; draft = null; try { history.replaceState(null, '', v ? '#compte' : location.pathname); } catch (e) { /* sans importance */ } render(); window.scrollTo(0, 0); }
+function setAccount(v) { stopTimer(); showAccount = v; draft = null; try { history.replaceState(null, '', v ? '#compte' : location.pathname); } catch (e) { /* sans importance */ } render(); window.scrollTo(0, 0); }
 $('btn-account').addEventListener('click', () => setAccount(true));
 $('tab-journal').addEventListener('click', e => { e.preventDefault(); setAccount(false); });
 $('sel-unit').addEventListener('change', e => JG.setUnit(e.target.value));
-$('btn-logout').addEventListener('click', () => { showAccount = false; draft = null; JG.disconnect(); render(); });
+$('btn-logout').addEventListener('click', () => { stopTimer(); showAccount = false; draft = null; JG.disconnect(); render(); });
 $('btn-csv').addEventListener('click', () => {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob(['﻿' + JG.toCSV()], { type: 'text/csv;charset=utf-8' }));

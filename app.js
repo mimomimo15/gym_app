@@ -249,9 +249,9 @@ const JG = (() => {
   function toCSV() {
     const q = v => '"' + String(v).replace(/"/g, '""') + '"';
     const MES = { time: 'temps', steps: 'pas' };
-    const rows = [['date', 'entrainement', 'exercice', 'mesure', 'set', 'reps', 'poids', 'unite', 'secondes', 'note'].join(',')];
+    const rows = [['date', 'entrainement', 'exercice', 'mesure', 'set', 'reps', 'poids', 'unite', 'secondes', 'note_exercice', 'note'].join(',')];
     workouts().slice().reverse().forEach(w => w.exercises.forEach(ex => ex.sets.forEach((s, i) =>
-      rows.push([w.date, q(w.name), q(ex.name), MES[ex.measure] || 'poids', i + 1, ex.measure === 'time' ? '' : R(s), ex.measure === 'time' ? '' : W(s), unit(), SEC(s) || '', q(w.note || '')].join(',')))));
+      rows.push([w.date, q(w.name), q(ex.name), MES[ex.measure] || 'poids', i + 1, ex.measure === 'time' ? '' : R(s), ex.measure === 'time' ? '' : W(s), unit(), SEC(s) || '', q(ex.note || ''), q(w.note || '')].join(',')))));
     return rows.join('\r\n');
   }
 
@@ -265,7 +265,9 @@ const JG = (() => {
     chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m19 9-5 5-4-4-3 3"/>',
     user: '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
     download: '<path d="M12 15V3"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/>',
-    play: '<circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4Z"/>'
+    play: '<circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4Z"/>',
+    timer: '<path d="M10 2h4"/><path d="m12 14 3-3"/><circle cx="12" cy="14" r="8"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>'
   };
   const icon = n => '<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONS[n] || '') + '</svg>';
   function hydrateIcons() { document.querySelectorAll('[data-icon]').forEach(el => { el.outerHTML = icon(el.dataset.icon); }); }

@@ -12,7 +12,7 @@ Site statique (GitHub Pages) où chaque personne note ses entraînements : entra
 - **Aucune donnée personnelle dans ce dépôt** (il est public). Ne jamais y écrire de jeton ni de fichier d'entraînements.
 - Pousser sur `main` met le site en ligne en une ou deux minutes. Pousser avec :
   `git fetch origin main && git rebase FETCH_HEAD && git push origin main`
-- **À chaque changement d'un fichier du site, incrémenter `CACHE` dans `sw.js`** (`jg-v10` → `jg-v11`…), pour purger l'ancien cache des appareils.
+- **À chaque changement d'un fichier du site, incrémenter `CACHE` dans `sw.js`** (`jg-v11` → `jg-v12`…), pour purger l'ancien cache des appareils.
 - Échapper tout texte saisi par l'utilisateur avec `JG.esc` avant de l'insérer dans du HTML.
 - Pas de `alert` / `confirm` : les confirmations sont dans la page (ex. suppression en deux clics).
 
@@ -52,7 +52,7 @@ Chaque personne a **son propre dépôt privé** `<son-compte>/journal-gym`, fich
 ```
 
 - Un élément de `workouts` est **une séance**. Les séances de même nom (comparaison sans majuscules, `JG.key`) sont affichées dans une seule carte « entraînement » ; « Nouvelle séance » recopie la dernière à la date du jour.
-- `type` absent ou `"ex"` = exercice avec sets. Son champ `measure` : absent = reps + poids ; `"time"` = chaque set est une durée `{ "sec": 45 }` ; `"steps"` = reps comptées en pas `{ "reps": 10, "weight": 0 }` (poids facultatif). Choisi dans l'éditeur (boutons lb / Temps / Pas). `"warmup"` et `"stretch"` = nom + `detail` en texte libre, sans sets, **exclus des stats**.
+- `type` absent ou `"ex"` = exercice avec sets. Son champ `measure` : absent = reps + poids ; `"time"` = chaque set est une durée `{ "sec": 45 }` ; `"steps"` = reps comptées en pas `{ "reps": 10, "weight": 0 }` (poids facultatif). Choisi dans l'éditeur (boutons lb / Temps / Pas). Champ facultatif `note` sur chaque élément (précisions libres, recopiées par « Nouvelle séance »). `"warmup"` et `"stretch"` = nom + `detail` en texte libre, sans sets, **exclus des stats**.
 - `unit` (`lb` ou `kg`) n'est qu'une étiquette : aucune conversion.
 - Suppression = pierre tombale `{ "id", "deleted": true, "updatedAt" }`, pour qu'elle se propage aux autres appareils.
 
@@ -71,6 +71,7 @@ Chaque personne a **son propre dépôt privé** `<son-compte>/journal-gym`, fich
 - Ordinateur : onglets en haut. Téléphone : barre d'onglets fixe en bas (Journal, Stats, Compte), masquée pendant l'édition d'une séance, où Enregistrer / Annuler restent collés en bas. L'onglet Compte de `stats.html` renvoie vers `index.html#compte`.
 - Sur téléphone, les tableaux de stats (`table.rt`) deviennent des fiches empilées grâce aux attributs `data-label`.
 - Icônes : `<i data-icon="plus"></i>` dans le HTML, remplacé par `JG.hydrateIcons()` ; `JG.icon(nom)` dans le JavaScript.
+- Minuteur (éditeur, sets en Temps) : bouton à côté de chaque durée, un seul décompte à la fois (`startTimer` / `stopTimer` dans `index.html`), basé sur l'heure de fin ; bips Web Audio (muets en mode silencieux sur iPhone), demande d'écran allumé (Wake Lock) si disponible.
 - État de synchro : `JG.paintStatus()` remplit `#who`, `#sync` et `#notice`.
 - iOS : le champ date déborde sans les règles `input[type="date"]` de `style.css` ; garder `min-width: 0` sur les enfants de grilles et de lignes flex. Garder les champs à 16 px minimum, sinon Safari zoome.
 

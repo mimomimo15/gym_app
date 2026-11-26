@@ -148,7 +148,8 @@ ol.steps b, ol.steps .ui { color: var(--text); }
 .ex > .tag { margin-bottom: 8px; }
 .ex-head { display: flex; gap: 4px; align-items: center; }
 .ex-head input { font-weight: 500; }
-.ex-detail { margin-top: 8px; }
+.ex-detail, .ex-note { margin-top: 8px; }
+.ex-note::placeholder { color: var(--muted); }
 .hint { font-family: var(--mono); font-size: 12px; line-height: 16px; color: var(--muted); margin-top: 8px; min-height: 16px; }
 
 /* Animation « comment faire » d'un exercice (moves.js) */
@@ -173,7 +174,24 @@ ol.steps b, ol.steps .ui { color: var(--text); }
 .mv-body .mv-band { stroke: var(--accent); stroke-width: 3; }
 .mv-body .mv-cable { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 3 3; fill: none; }
 .set-row { display: grid; grid-template-columns: 32px 1fr 1fr 36px; gap: 8px; align-items: center; margin-top: 8px; }
-.set-row.one { grid-template-columns: 32px 1fr 36px; }
+.set-row.timed { grid-template-columns: 32px 1fr 44px 36px; }
+.icon.timer-btn { color: var(--accent); background: var(--soft); width: 44px; height: 44px; }
+.icon.timer-btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+
+/* Minuteur : collé au-dessus des boutons Enregistrer / Annuler sur téléphone, flottant en bas sur ordinateur */
+.timer { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 20; width: min(440px, calc(100% - 32px));
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; padding: 12px 16px 14px;
+  background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 8px 24px rgba(15,23,42,.18); }
+.timer-info { display: flex; flex-direction: column; min-width: 0; }
+#timer-label { font-size: 13px; line-height: 18px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timer-time { font-family: var(--mono); font-size: 34px; line-height: 40px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); }
+.timer-bar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--raised); overflow: hidden; }
+.timer-bar i { display: block; height: 100%; width: 0; background: var(--accent); }
+.timer.done { border-color: var(--ok); }
+.timer.done .timer-time { color: var(--ok); }
+.timer.done .timer-bar i { background: var(--ok); }
+.li-name { display: flex; flex-direction: column; min-width: 0; }
+.li-note { font-size: 13px; line-height: 18px; color: var(--muted); font-weight: 400; }
 /* Choix de la mesure d'un exercice : poids / temps / pas */
 .measure { display: inline-flex; margin-top: 8px; padding: 2px; gap: 2px; border-radius: 8px; background: var(--raised); max-width: 100%; }
 .measure button { appearance: none; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 13px; line-height: 18px; padding: 6px 12px; border-radius: 6px; cursor: pointer; min-height: 32px; }
@@ -277,7 +295,8 @@ tr.click.current td:first-child b { color: var(--on-soft); }
 
   /* éditeur */
   .set-row { grid-template-columns: 24px 1fr 1fr 36px; }
-  .set-row.one { grid-template-columns: 24px 1fr 36px; }
+  .set-row.timed { grid-template-columns: 24px 1fr 44px 36px; }
+  .timer { position: absolute; left: 0; right: 0; bottom: 100%; transform: none; width: auto; border-radius: 12px 12px 0 0; border-width: 1px 0 0; box-shadow: 0 -6px 16px rgba(15,23,42,.12); }
   .set-row input { min-height: 44px; }
   .ex .add-set { width: 100%; min-height: 40px; }
   .mv-panel { flex-direction: column; align-items: stretch; }
