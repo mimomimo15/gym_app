@@ -173,6 +173,11 @@ ol.steps b, ol.steps .ui { color: var(--text); }
 .mv-body .mv-band { stroke: var(--accent); stroke-width: 3; }
 .mv-body .mv-cable { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 3 3; fill: none; }
 .set-row { display: grid; grid-template-columns: 32px 1fr 1fr 36px; gap: 8px; align-items: center; margin-top: 8px; }
+.set-row.one { grid-template-columns: 32px 1fr 36px; }
+/* Choix de la mesure d'un exercice : poids / temps / pas */
+.measure { display: inline-flex; margin-top: 8px; padding: 2px; gap: 2px; border-radius: 8px; background: var(--raised); max-width: 100%; }
+.measure button { appearance: none; border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 13px; line-height: 18px; padding: 6px 12px; border-radius: 6px; cursor: pointer; min-height: 32px; }
+.measure button[aria-pressed="true"] { background: var(--card); color: var(--text); font-weight: 600; box-shadow: var(--shadow); }
 .set-row.head { font-size: 12px; line-height: 16px; color: var(--muted); margin-top: 12px; text-align: center; }
 .set-row .n { text-align: center; }
 .set-row input { text-align: center; font-family: var(--mono); font-variant-numeric: tabular-nums; }
@@ -272,6 +277,7 @@ tr.click.current td:first-child b { color: var(--on-soft); }
 
   /* éditeur */
   .set-row { grid-template-columns: 24px 1fr 1fr 36px; }
+  .set-row.one { grid-template-columns: 24px 1fr 36px; }
   .set-row input { min-height: 44px; }
   .ex .add-set { width: 100%; min-height: 40px; }
   .mv-panel { flex-direction: column; align-items: stretch; }

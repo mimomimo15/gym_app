@@ -176,15 +176,31 @@ const JG = (() => {
   // ---------- calculs ----------
   const e1rm = (w, r) => (w > 0 && r > 0) ? (r === 1 ? w : w * (1 + r / 30)) : 0;   // formule d'Epley
 
-  function setsSummary(sets, u) {
-    const groups = [];
+  /* Mesure d'un exercice (champ « measure ») : absent = reps + poids ; « time » = chaque set est une durée
+     ({ sec }) ; « steps » = reps comptées en pas ({ reps, weight }, poids facultatif). */
+  const R = s => +s.reps || 0, W = s => +s.weight || 0, SEC = s => +s.sec || 0;
+  // 45 → « 45 s », 90 → « 1 min 30 », 120 → « 2 min »
+  const fmtSec = n => n < 60 ? n + ' s' : Math.floor(n / 60) + ' min' + (n % 60 ? ' ' + String(n % 60).padStart(2, '0') : '');
+  // « 45 », « 45 s », « 1:30 » ou « 1 min 30 » → secondes (NaN si illisible)
+  function parseSec(v) {
+    const t = String(v == null ? '' : v).trim().toLowerCase();
+    let m = t.match(/^(\d+)\s*(?::|min|m)\s*(\d{1,2})?\s*s?$/);
+    if (m) return +m[1] * 60 + (+m[2] || 0);
+    m = t.match(/^(\d+(?:[.,]\d+)?)\s*(?:s|sec|secondes?)?$/);
+    return m ? Math.round(num(m[1])) : NaN;
+  }
+
+  function setsSummary(sets, u, measure) {
+    const groups = [], time = measure === 'time';
     for (const s of sets) {
       const g = groups[groups.length - 1];
-      if (g && g.reps === s.reps && g.weight === s.weight) g.n++; else groups.push({ n: 1, reps: s.reps, weight: s.weight });
+      if (g && (time ? g.sec === SEC(s) : g.reps === R(s) && g.weight === W(s))) g.n++; else groups.push({ n: 1, reps: R(s), weight: W(s), sec: SEC(s) });
     }
-    return groups.map(g => g.n + '×' + g.reps + (g.weight > 0 ? ' @ ' + fmtNum(g.weight) + (u ? ' ' + u : '') : '')).join(' · ');
+    if (time) return groups.map(g => g.n + '×' + fmtSec(g.sec)).join(' · ');
+    const what = measure === 'steps' ? ' pas' : '';
+    return groups.map(g => g.n + '×' + g.reps + what + (g.weight > 0 ? ' @ ' + fmtNum(g.weight) + (u ? ' ' + u : '') : '')).join(' · ');
   }
-  const workoutVolume = w => w.exercises.reduce((t, ex) => t + ex.sets.reduce((a, s) => a + s.reps * s.weight, 0), 0);
+  const workoutVolume = w => w.exercises.reduce((t, ex) => t + ex.sets.reduce((a, s) => a + R(s) * W(s), 0), 0);
 
   /* Historique par exercice : Map clé -> { name, sessions:[{date, workoutId, sets, maxW, maxWReps, maxReps, e1rm, volume}] } (dates croissantes) */
   function history(excludeId) {
@@ -196,14 +212,17 @@ const JG = (() => {
         const k = key(ex.name); if (!k || !ex.sets.length) continue;
         if (!m.has(k)) m.set(k, { name: ex.name.trim(), sessions: [] });
         const h = m.get(k);
+        h.measure = ex.measure || '';   // mesure de la dernière fois
         let s = h.sessions[h.sessions.length - 1];
-        if (!s || s.workoutId !== w.id) { s = { date: w.date, workoutId: w.id, sets: [], maxW: 0, maxWReps: 0, maxReps: 0, e1rm: 0, volume: 0 }; h.sessions.push(s); }
+        if (!s || s.workoutId !== w.id) { s = { date: w.date, workoutId: w.id, measure: ex.measure || '', sets: [], maxW: 0, maxWReps: 0, maxReps: 0, maxSec: 0, e1rm: 0, volume: 0 }; h.sessions.push(s); }
         for (const st of ex.sets) {
+          const r = R(st), wt = W(st);
           s.sets.push(st);
-          if (st.weight > s.maxW || (st.weight === s.maxW && st.reps > s.maxWReps)) { s.maxW = st.weight; s.maxWReps = st.reps; }
-          if (st.reps > s.maxReps) s.maxReps = st.reps;
-          s.e1rm = Math.max(s.e1rm, e1rm(st.weight, st.reps));
-          s.volume += st.reps * st.weight;
+          if (wt > s.maxW || (wt === s.maxW && r > s.maxWReps)) { s.maxW = wt; s.maxWReps = r; }
+          if (r > s.maxReps) s.maxReps = r;
+          if (SEC(st) > s.maxSec) s.maxSec = SEC(st);
+          s.e1rm = Math.max(s.e1rm, ex.measure === 'steps' ? 0 : e1rm(wt, r));
+          s.volume += r * wt;
         }
       }
     }
@@ -213,9 +232,10 @@ const JG = (() => {
   function records() {
     const out = [];
     history().forEach((h, k) => {
-      const r = { key: k, name: h.name, count: h.sessions.length, last: h.sessions[h.sessions.length - 1].date,
-        maxW: 0, maxWReps: 0, maxWDate: '', e1rm: 0, e1rmDate: '', volume: 0, volumeDate: '', maxReps: 0, maxRepsDate: '' };
+      const r = { key: k, name: h.name, measure: h.measure, count: h.sessions.length, last: h.sessions[h.sessions.length - 1].date,
+        maxW: 0, maxWReps: 0, maxWDate: '', e1rm: 0, e1rmDate: '', volume: 0, volumeDate: '', maxReps: 0, maxRepsDate: '', maxSec: 0, maxSecDate: '' };
       for (const s of h.sessions) {
+        if (s.maxSec > r.maxSec) { r.maxSec = s.maxSec; r.maxSecDate = s.date; }
         if (s.maxW > r.maxW || (s.maxW === r.maxW && s.maxWReps > r.maxWReps)) { r.maxW = s.maxW; r.maxWReps = s.maxWReps; r.maxWDate = s.date; }
         if (s.e1rm > r.e1rm) { r.e1rm = s.e1rm; r.e1rmDate = s.date; }
         if (s.volume > r.volume) { r.volume = s.volume; r.volumeDate = s.date; }
@@ -228,9 +248,10 @@ const JG = (() => {
 
   function toCSV() {
     const q = v => '"' + String(v).replace(/"/g, '""') + '"';
-    const rows = [['date', 'entrainement', 'exercice', 'set', 'reps', 'poids', 'unite', 'note'].join(',')];
+    const MES = { time: 'temps', steps: 'pas' };
+    const rows = [['date', 'entrainement', 'exercice', 'mesure', 'set', 'reps', 'poids', 'unite', 'secondes', 'note'].join(',')];
     workouts().slice().reverse().forEach(w => w.exercises.forEach(ex => ex.sets.forEach((s, i) =>
-      rows.push([w.date, q(w.name), q(ex.name), i + 1, s.reps, s.weight, unit(), q(w.note || '')].join(',')))));
+      rows.push([w.date, q(w.name), q(ex.name), MES[ex.measure] || 'poids', i + 1, ex.measure === 'time' ? '' : R(s), ex.measure === 'time' ? '' : W(s), unit(), SEC(s) || '', q(w.note || '')].join(',')))));
     return rows.join('\r\n');
   }
 
@@ -279,6 +300,6 @@ const JG = (() => {
     workouts, getWorkout, saveWorkout, deleteWorkout, unit, setUnit,
     history, records, e1rm, setsSummary, workoutVolume, toCSV,
     icon, hydrateIcons, paintStatus,
-    esc, uid, today, toDate, fmtDate, fmtNum, num, key, _merge: merge };
+    esc, uid, today, toDate, fmtDate, fmtNum, num, key, fmtSec, parseSec, _merge: merge };
 })();
 if (typeof module !== 'undefined') module.exports = JG;

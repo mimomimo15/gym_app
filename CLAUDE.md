@@ -12,7 +12,7 @@ Site statique (GitHub Pages) où chaque personne note ses entraînements : entra
 - **Aucune donnée personnelle dans ce dépôt** (il est public). Ne jamais y écrire de jeton ni de fichier d'entraînements.
 - Pousser sur `main` met le site en ligne en une ou deux minutes. Pousser avec :
   `git fetch origin main && git rebase FETCH_HEAD && git push origin main`
-- **À chaque changement d'un fichier du site, incrémenter `CACHE` dans `sw.js`** (`jg-v9` → `jg-v10`…), pour purger l'ancien cache des appareils.
+- **À chaque changement d'un fichier du site, incrémenter `CACHE` dans `sw.js`** (`jg-v10` → `jg-v11`…), pour purger l'ancien cache des appareils.
 - Échapper tout texte saisi par l'utilisateur avec `JG.esc` avant de l'insérer dans du HTML.
 - Pas de `alert` / `confirm` : les confirmations sont dans la page (ex. suppression en deux clics).
 
@@ -52,7 +52,7 @@ Chaque personne a **son propre dépôt privé** `<son-compte>/journal-gym`, fich
 ```
 
 - Un élément de `workouts` est **une séance**. Les séances de même nom (comparaison sans majuscules, `JG.key`) sont affichées dans une seule carte « entraînement » ; « Nouvelle séance » recopie la dernière à la date du jour.
-- `type` absent ou `"ex"` = exercice avec sets. `"warmup"` et `"stretch"` = nom + `detail` en texte libre, sans sets, **exclus des stats**.
+- `type` absent ou `"ex"` = exercice avec sets. Son champ `measure` : absent = reps + poids ; `"time"` = chaque set est une durée `{ "sec": 45 }` ; `"steps"` = reps comptées en pas `{ "reps": 10, "weight": 0 }` (poids facultatif). Choisi dans l'éditeur (boutons lb / Temps / Pas). `"warmup"` et `"stretch"` = nom + `detail` en texte libre, sans sets, **exclus des stats**.
 - `unit` (`lb` ou `kg`) n'est qu'une étiquette : aucune conversion.
 - Suppression = pierre tombale `{ "id", "deleted": true, "updatedAt" }`, pour qu'elle se propage aux autres appareils.
 

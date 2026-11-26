@@ -151,7 +151,7 @@ function sessionHTML(w, u) {
     '<div class="sess-head"><span class="w-date">' + esc(JG.fmtDate(w.date, true)) + '</span>' +
     '<button class="btn small ghost" data-act="edit" data-id="' + esc(w.id) + '">Modifier</button></div>' +
     (w.exercises.length ? '<ul>' + w.exercises.map(ex => isEx(ex)
-      ? '<li><b>' + esc(ex.name) + '</b><span class="sets">' + esc(JG.setsSummary(ex.sets, u)) + '</span></li>'
+      ? '<li><b>' + esc(ex.name) + '</b><span class="sets">' + esc(JG.setsSummary(ex.sets, u, ex.measure)) + '</span></li>'
       : '<li class="extra"><span><span class="tag">' + TYPES[ex.type].label + '</span><b>' + esc(ex.name) + '</b></span><span class="sets">' + esc(ex.detail || '') + '</span></li>').join('') + '</ul>' : '') +
     (w.note ? '<p class="note">' + esc(w.note) + '</p>' : '') +
     '<footer>' + nEx + ' exercice' + (nEx > 1 ? 's' : '') + ' · ' + nSets + ' set' + (nSets > 1 ? 's' : '') +
@@ -185,13 +185,16 @@ function renderList() {
 }
 
 /* ---------- éditeur ---------- */
-const blankSet = () => ({ reps: '', weight: '' });
-const blankEx = type => ({ type: type || 'ex', name: '', detail: '', sets: (type || 'ex') === 'ex' ? [blankSet()] : [] });
+const blankSet = () => ({ reps: '', weight: '', sec: '' });
+const blankEx = type => ({ type: type || 'ex', measure: '', name: '', detail: '', sets: (type || 'ex') === 'ex' ? [blankSet()] : [] });
+/* Mesure d'un exercice : '' = reps + poids, 'time' = durée de chaque set, 'steps' = nombre de pas (+ poids facultatif) */
+const MEASURES = [['', () => JG.unit()], ['time', () => 'Temps'], ['steps', () => 'Pas']];
 
 function openEditor(w, asCopy) {
   if (w) {
     draft = { id: asCopy ? null : w.id, createdAt: asCopy ? null : w.createdAt, date: asCopy ? JG.today() : w.date, name: w.name, note: asCopy ? '' : (w.note || ''),
-      exercises: w.exercises.map(ex => ({ type: ex.type || 'ex', detail: ex.detail || '', name: ex.name, sets: ex.sets.map(s => ({ reps: String(s.reps), weight: s.weight ? String(s.weight).replace('.', ',') : '' })) })) };
+      exercises: w.exercises.map(ex => ({ type: ex.type || 'ex', measure: ex.measure || '', detail: ex.detail || '', name: ex.name,
+        sets: ex.sets.map(s => ({ reps: s.reps ? String(s.reps) : '', weight: s.weight ? String(s.weight).replace('.', ',') : '', sec: s.sec ? String(s.sec) : '' })) })) };
   } else {
     draft = { id: null, date: JG.today(), name: '', note: '', exercises: [blankEx()] };
   }
@@ -215,7 +218,7 @@ function hintFor(name) {
   const h = JG.history(draft && draft.id).get(JG.key(name));
   if (!h) return '';
   const s = h.sessions[h.sessions.length - 1];
-  return 'Dernière fois (' + JG.fmtDate(s.date) + ') : ' + JG.setsSummary(s.sets, JG.unit());
+  return 'Dernière fois (' + JG.fmtDate(s.date) + ') : ' + JG.setsSummary(s.sets, JG.unit(), s.measure);
 }
 
 /* Animation « comment faire » (moves.js) : bouton visible seulement si le nom correspond à un mouvement connu.
@@ -234,6 +237,19 @@ function refreshDemo(exEl, ex) {
   if (open) JGMoves.start();
 }
 
+// Lignes de sets selon la mesure : reps + poids, durée seule, ou pas + poids facultatif
+function setRowsHTML(ex, u) {
+  const del = '<button class="icon" data-act="del-set" type="button" title="Retirer le set" aria-label="Retirer le set">' + JG.icon('x') + '</button>';
+  if (ex.measure === 'time') return '<div class="set-row one head"><span>Set</span><span>Temps (secondes)</span><span></span></div>' +
+    ex.sets.map((s, j) => '<div class="set-row one" data-j="' + j + '"><span class="n">' + (j + 1) + '</span>' +
+      '<input class="sec" type="text" inputmode="numeric" placeholder="ex. 45" aria-label="Temps du set ' + (j + 1) + ', en secondes" value="' + esc(s.sec) + '">' + del + '</div>').join('');
+  const what = ex.measure === 'steps' ? 'Pas' : 'Reps';
+  return '<div class="set-row head"><span>Set</span><span>' + what + '</span><span>Poids (' + u + ')' + '</span><span></span></div>' +
+    ex.sets.map((s, j) => '<div class="set-row" data-j="' + j + '"><span class="n">' + (j + 1) + '</span>' +
+      '<input class="reps" type="text" inputmode="numeric" aria-label="' + what + ' du set ' + (j + 1) + '" value="' + esc(s.reps) + '">' +
+      '<input class="wt" type="text" inputmode="decimal" aria-label="Poids du set ' + (j + 1) + '" value="' + esc(s.weight) + '">' + del + '</div>').join('');
+}
+
 function renderExercises() {
   const u = JG.unit();
   $('ed-ex').innerHTML = draft.exercises.map((ex, i) => {
@@ -249,12 +265,9 @@ function renderExercises() {
       '<input class="ex-detail" type="text" autocomplete="off" placeholder="Durée ou détails (ex. 5 min)" aria-label="Durée ou détails" value="' + esc(ex.detail) + '"></div>';
     return head + slot +
       '<div class="hint">' + esc(hintFor(ex.name)) + '</div>' +
-      '<div class="set-row head"><span>Set</span><span>Reps</span><span>Poids (' + u + ')</span><span></span></div>' +
-      ex.sets.map((s, j) =>
-        '<div class="set-row" data-j="' + j + '"><span class="n">' + (j + 1) + '</span>' +
-        '<input class="reps" type="text" inputmode="numeric" aria-label="Reps du set ' + (j + 1) + '" value="' + esc(s.reps) + '">' +
-        '<input class="wt" type="text" inputmode="decimal" aria-label="Poids du set ' + (j + 1) + '" value="' + esc(s.weight) + '">' +
-        '<button class="icon" data-act="del-set" type="button" title="Retirer le set" aria-label="Retirer le set">' + JG.icon('x') + '</button></div>').join('') +
+      '<div class="measure" role="group" aria-label="Mesure">' + MEASURES.map(([m, label]) =>
+        '<button type="button" data-act="measure" data-m="' + m + '" aria-pressed="' + (ex.measure === m) + '">' + esc(label()) + '</button>').join('') + '</div>' +
+      setRowsHTML(ex, u) +
       '<button class="btn small add-set" data-act="add-set" type="button">' + JG.icon('plus') + 'Set</button>' +
     '</div>';
   }).join('');
@@ -270,6 +283,7 @@ $('ed-ex').addEventListener('input', e => {
   const s = ex.sets[+row.dataset.j];
   if (e.target.classList.contains('reps')) s.reps = e.target.value;
   if (e.target.classList.contains('wt')) s.weight = e.target.value;
+  if (e.target.classList.contains('sec')) s.sec = e.target.value;
 });
 
 $('ed-ex').addEventListener('click', e => {
@@ -277,12 +291,14 @@ $('ed-ex').addEventListener('click', e => {
   const exEl = b.closest('.ex'), i = +exEl.dataset.i, ex = draft.exercises[i];
   if (b.dataset.act === 'demo') {
     ex._demo = !ex._demo; refreshDemo(exEl, ex);
+  } else if (b.dataset.act === 'measure') {
+    ex.measure = b.dataset.m; renderExercises();
   } else if (b.dataset.act === 'add-set') {
     const last = ex.sets[ex.sets.length - 1];
-    ex.sets.push(last ? { reps: last.reps, weight: last.weight } : blankSet());   // recopie le set précédent
+    ex.sets.push(last ? { reps: last.reps, weight: last.weight, sec: last.sec } : blankSet());   // recopie le set précédent
     renderExercises();
     const rows = $('ed-ex').querySelectorAll('.ex[data-i="' + i + '"] .set-row[data-j]');
-    const inp = rows[rows.length - 1].querySelector('.reps'); inp.focus(); inp.select();
+    const inp = rows[rows.length - 1].querySelector('input'); inp.focus(); inp.select();
   } else if (b.dataset.act === 'del-set') {
     ex.sets.splice(+b.closest('.set-row').dataset.j, 1); renderExercises();
   } else if (b.dataset.act === 'del-ex') {
@@ -308,17 +324,25 @@ function collect() {
       exercises.push({ type: ex.type, name, detail, sets: [] });
       continue;
     }
+    const pour = name ? ' pour « ' + name + ' »' : '';
     for (const s of ex.sets) {
-      const rs = String(s.reps).trim(), wsr = String(s.weight).trim();
+      if (ex.measure === 'time') {
+        const ss = String(s.sec || '').trim(); if (!ss) continue;
+        const sec = JG.parseSec(ss);
+        if (!(sec > 0)) throw new Error('Temps invalide' + pour + ' : entre des secondes (ex. 45) ou 1:30.');
+        sets.push({ sec });
+        continue;
+      }
+      const rs = String(s.reps || '').trim(), wsr = String(s.weight || '').trim();
       if (!rs && !wsr) continue;
       const reps = JG.num(rs), weight = wsr ? JG.num(wsr) : 0;
-      if (!(reps > 0) || reps !== Math.round(reps)) throw new Error('Reps invalides' + (name ? ' pour « ' + name + ' »' : '') + ' : entre un nombre entier.');
-      if (!(weight >= 0)) throw new Error('Poids invalide' + (name ? ' pour « ' + name + ' »' : '') + '.');
+      if (!(reps > 0) || reps !== Math.round(reps)) throw new Error((ex.measure === 'steps' ? 'Nombre de pas invalide' : 'Reps invalides') + pour + ' : entre un nombre entier.');
+      if (!(weight >= 0)) throw new Error('Poids invalide' + pour + '.');
       sets.push({ reps, weight });
     }
     if (!name && !sets.length) continue;
     if (!name) throw new Error('Donne un nom à chaque exercice.');
-    exercises.push({ name, sets });
+    exercises.push(ex.measure ? { name, measure: ex.measure, sets } : { name, sets });
   }
   const name = $('ed-name').value.trim() || 'Entraînement';
   if (!exercises.length && !$('ed-name').value.trim()) throw new Error('Ajoute au moins un élément ou un nom.');
