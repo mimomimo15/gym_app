@@ -12,7 +12,7 @@ Site statique (GitHub Pages) où chaque personne note ses entraînements : entra
 - **Aucune donnée personnelle dans ce dépôt** (il est public). Ne jamais y écrire de jeton ni de fichier d'entraînements.
 - Pousser sur `main` met le site en ligne en une ou deux minutes. Pousser avec :
   `git fetch origin main && git rebase FETCH_HEAD && git push origin main`
-- **À chaque changement d'un fichier du site, incrémenter `CACHE` dans `sw.js`** (`jg-v11` → `jg-v12`…), pour purger l'ancien cache des appareils.
+- **À chaque changement d'un fichier du site, incrémenter `CACHE` dans `sw.js`** (`jg-v12` → `jg-v13`…), pour purger l'ancien cache des appareils.
 - Échapper tout texte saisi par l'utilisateur avec `JG.esc` avant de l'insérer dans du HTML.
 - Pas de `alert` / `confirm` : les confirmations sont dans la page (ex. suppression en deux clics).
 

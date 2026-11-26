@@ -346,7 +346,8 @@ function renderExercises() {
       '<button class="icon" data-act="del-ex" type="button" title="Retirer" aria-label="Retirer">' + JG.icon('x') + '</button></div>';
     const mv = ex._demo && JGMoves.find(ex.name);
     const slot = '<div class="demo-slot" data-mv="' + (mv || '') + '">' + (mv ? JGMoves.panel(mv) : '') + '</div>';
-    const note = '<input class="ex-note" type="text" autocomplete="off" placeholder="Note (ex. par jambe, élastique rouge)" aria-label="Note sur l\'exercice" value="' + esc(ex.note) + '">';
+    // Zone de texte qui s'agrandit avec le contenu : la note reste lisible en entier sur téléphone
+    const note = '<textarea class="ex-note" rows="1" placeholder="Note (ex. par jambe, élastique rouge)" aria-label="Note sur l\'exercice">' + esc(ex.note) + '</textarea>';
     if (!isEx(ex)) return head + slot +
       '<input class="ex-detail" type="text" autocomplete="off" placeholder="Durée ou détails (ex. 5 min)" aria-label="Durée ou détails" value="' + esc(ex.detail) + '">' + note + '</div>';
     return head + note + slot +
@@ -357,15 +358,18 @@ function renderExercises() {
       '<button class="btn small add-set" data-act="add-set" type="button">' + JG.icon('plus') + 'Set</button>' +
     '</div>';
   }).join('');
+  requestAnimationFrame(() => document.querySelectorAll('#ed-ex .ex-note').forEach(fitNote));   // une fois l'éditeur affiché
   JGMoves.start();
 }
+function fitNote(t) { t.style.height = 'auto'; if (t.scrollHeight) t.style.height = (t.scrollHeight + 2) + 'px'; }
+window.addEventListener('resize', () => document.querySelectorAll('#ed-ex .ex-note').forEach(fitNote));
 
 $('ed-ex').addEventListener('input', e => {
   const exEl = e.target.closest('.ex'); if (!exEl) return;
   const ex = draft.exercises[+exEl.dataset.i];
   if (e.target.classList.contains('ex-name')) { ex.name = e.target.value; const h = exEl.querySelector('.hint'); if (h) h.textContent = hintFor(ex.name); refreshDemo(exEl, ex); return; }
   if (e.target.classList.contains('ex-detail')) { ex.detail = e.target.value; return; }
-  if (e.target.classList.contains('ex-note')) { ex.note = e.target.value; return; }
+  if (e.target.classList.contains('ex-note')) { ex.note = e.target.value; fitNote(e.target); return; }
   const row = e.target.closest('.set-row'); if (!row) return;
   const s = ex.sets[+row.dataset.j];
   if (e.target.classList.contains('reps')) s.reps = e.target.value;
