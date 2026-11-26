@@ -12,7 +12,7 @@ Site statique (GitHub Pages) où chaque personne note ses entraînements : entra
 - **Aucune donnée personnelle dans ce dépôt** (il est public). Ne jamais y écrire de jeton ni de fichier d'entraînements.
 - Pousser sur `main` met le site en ligne en une ou deux minutes. Pousser avec :
   `git fetch origin main && git rebase FETCH_HEAD && git push origin main`
-- **À chaque changement d'un fichier du site, incrémenter `CACHE` dans `sw.js`** (`jg-v8` → `jg-v9`…), pour purger l'ancien cache des appareils.
+- **À chaque changement d'un fichier du site, incrémenter `CACHE` dans `sw.js`** (`jg-v9` → `jg-v10`…), pour purger l'ancien cache des appareils.
 - Échapper tout texte saisi par l'utilisateur avec `JG.esc` avant de l'insérer dans du HTML.
 - Pas de `alert` / `confirm` : les confirmations sont dans la page (ex. suppression en deux clics).
 
@@ -23,6 +23,7 @@ Site statique (GitHub Pages) où chaque personne note ses entraînements : entra
 | `index.html` | Journal : connexion, liste regroupée, éditeur de séance, onglet Compte (unité, export CSV, déconnexion), bouton d'installation |
 | `stats.html` | Stats : tuiles, progression par exercice (graphique + séances), records personnels |
 | `app.js` | Objet global `JG` : connexion GitHub, synchronisation, données, calculs, icônes, état de synchro |
+| `moves.js` | Objet global `JGMoves` : animations « comment faire » (bonhomme SVG) des exercices courants, reconnus d'après le nom. Bouton ▶ dans l'éditeur |
 | `style.css` | Styles. Thème clair/sombre automatique, accent bleu, règles téléphone sous `@media (max-width: 640px)` |
 | `sw.js` | Service worker (hors ligne, installation) |
 | `manifest.webmanifest`, `icon*` | Métadonnées et icônes de l'application |

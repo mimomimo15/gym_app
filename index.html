@@ -104,6 +104,7 @@
 </div>
 
 <script src="app.js"></script>
+<script src="moves.js"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -217,6 +218,22 @@ function hintFor(name) {
   return 'Dernière fois (' + JG.fmtDate(s.date) + ') : ' + JG.setsSummary(s.sets, JG.unit());
 }
 
+/* Animation « comment faire » (moves.js) : bouton visible seulement si le nom correspond à un mouvement connu.
+   L'état ouvert/fermé est gardé sur l'exercice (_demo), il n'est pas enregistré. */
+function demoBtnHTML(ex) {
+  const id = JGMoves.find(ex.name), open = !!(id && ex._demo);
+  return '<button class="icon demo-btn' + (id ? '' : ' hidden') + '" data-act="demo" type="button" title="Voir le mouvement" aria-label="Voir le mouvement" aria-expanded="' + open + '">' + JG.icon('play') + '</button>';
+}
+function refreshDemo(exEl, ex) {
+  const id = JGMoves.find(ex.name), open = !!(id && ex._demo), b = exEl.querySelector('.demo-btn'), slot = exEl.querySelector('.demo-slot');
+  if (!b || !slot) return;
+  b.classList.toggle('hidden', !id); b.setAttribute('aria-expanded', String(open));
+  if (!open) slot.innerHTML = '';
+  else if (slot.dataset.mv !== id) slot.innerHTML = JGMoves.panel(id);
+  slot.dataset.mv = open ? id : '';
+  if (open) JGMoves.start();
+}
+
 function renderExercises() {
   const u = JG.unit();
   $('ed-ex').innerHTML = draft.exercises.map((ex, i) => {
@@ -224,10 +241,13 @@ function renderExercises() {
     const head = '<div class="ex ' + esc(ex.type) + '" data-i="' + i + '">' +
       (isEx(ex) ? '' : '<div class="tag">' + t.label + '</div>') +
       '<div class="ex-head"><input class="ex-name" type="text" list="' + t.list + '" autocomplete="off" placeholder="' + esc(t.ph) + '" aria-label="Nom" value="' + esc(ex.name) + '">' +
+      demoBtnHTML(ex) +
       '<button class="icon" data-act="del-ex" type="button" title="Retirer" aria-label="Retirer">' + JG.icon('x') + '</button></div>';
-    if (!isEx(ex)) return head +
+    const mv = ex._demo && JGMoves.find(ex.name);
+    const slot = '<div class="demo-slot" data-mv="' + (mv || '') + '">' + (mv ? JGMoves.panel(mv) : '') + '</div>';
+    if (!isEx(ex)) return head + slot +
       '<input class="ex-detail" type="text" autocomplete="off" placeholder="Durée ou détails (ex. 5 min)" aria-label="Durée ou détails" value="' + esc(ex.detail) + '"></div>';
-    return head +
+    return head + slot +
       '<div class="hint">' + esc(hintFor(ex.name)) + '</div>' +
       '<div class="set-row head"><span>Set</span><span>Reps</span><span>Poids (' + u + ')</span><span></span></div>' +
       ex.sets.map((s, j) =>
@@ -238,12 +258,13 @@ function renderExercises() {
       '<button class="btn small add-set" data-act="add-set" type="button">' + JG.icon('plus') + 'Set</button>' +
     '</div>';
   }).join('');
+  JGMoves.start();
 }
 
 $('ed-ex').addEventListener('input', e => {
   const exEl = e.target.closest('.ex'); if (!exEl) return;
   const ex = draft.exercises[+exEl.dataset.i];
-  if (e.target.classList.contains('ex-name')) { ex.name = e.target.value; const h = exEl.querySelector('.hint'); if (h) h.textContent = hintFor(ex.name); return; }
+  if (e.target.classList.contains('ex-name')) { ex.name = e.target.value; const h = exEl.querySelector('.hint'); if (h) h.textContent = hintFor(ex.name); refreshDemo(exEl, ex); return; }
   if (e.target.classList.contains('ex-detail')) { ex.detail = e.target.value; return; }
   const row = e.target.closest('.set-row'); if (!row) return;
   const s = ex.sets[+row.dataset.j];
@@ -254,7 +275,9 @@ $('ed-ex').addEventListener('input', e => {
 $('ed-ex').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const exEl = b.closest('.ex'), i = +exEl.dataset.i, ex = draft.exercises[i];
-  if (b.dataset.act === 'add-set') {
+  if (b.dataset.act === 'demo') {
+    ex._demo = !ex._demo; refreshDemo(exEl, ex);
+  } else if (b.dataset.act === 'add-set') {
     const last = ex.sets[ex.sets.length - 1];
     ex.sets.push(last ? { reps: last.reps, weight: last.weight } : blankSet());   // recopie le set précédent
     renderExercises();

@@ -150,6 +150,28 @@ ol.steps b, ol.steps .ui { color: var(--text); }
 .ex-head input { font-weight: 500; }
 .ex-detail { margin-top: 8px; }
 .hint { font-family: var(--mono); font-size: 12px; line-height: 16px; color: var(--muted); margin-top: 8px; min-height: 16px; }
+
+/* Animation « comment faire » d'un exercice (moves.js) */
+.icon.demo-btn { color: var(--accent); }
+.icon.demo-btn[aria-expanded="true"] { background: var(--soft); color: var(--on-soft); }
+.mv-panel { display: flex; gap: 12px; align-items: center; margin-top: 8px; padding: 8px; border-radius: 8px; background: var(--card); border: 1px solid var(--line); min-width: 0; }
+.mv-svg { display: block; width: 180px; max-width: 45%; height: auto; flex: none; }
+.mv-text { min-width: 0; font-size: 13px; line-height: 18px; color: var(--text-2); }
+.mv-title { font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.mv-text ul { margin: 0; padding-left: 16px; }
+.mv-text li + li { margin-top: 2px; }
+.mv-body line, .mv-body polyline { stroke: var(--text); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.mv-body .mv-far { stroke: var(--muted); opacity: .55; }
+.mv-head { fill: var(--card); stroke: var(--text); stroke-width: 3; }
+.mv-ghost { opacity: .3; }
+.mv-plate { fill: var(--accent); }
+.mv-axle { fill: var(--card); }
+.mv-floor { stroke: var(--line-strong); stroke-width: 2; stroke-linecap: round; }
+.mv-prop { fill: var(--raised); stroke: var(--line-strong); stroke-width: 1.5; }
+.mv-prop-l { stroke: var(--line-strong); stroke-width: 3; stroke-linecap: round; fill: none; }
+.mv-hbar { stroke-width: 4; }
+.mv-body .mv-band { stroke: var(--accent); stroke-width: 3; }
+.mv-body .mv-cable { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 3 3; fill: none; }
 .set-row { display: grid; grid-template-columns: 32px 1fr 1fr 36px; gap: 8px; align-items: center; margin-top: 8px; }
 .set-row.head { font-size: 12px; line-height: 16px; color: var(--muted); margin-top: 12px; text-align: center; }
 .set-row .n { text-align: center; }
@@ -252,6 +274,8 @@ tr.click.current td:first-child b { color: var(--on-soft); }
   .set-row { grid-template-columns: 24px 1fr 1fr 36px; }
   .set-row input { min-height: 44px; }
   .ex .add-set { width: 100%; min-height: 40px; }
+  .mv-panel { flex-direction: column; align-items: stretch; }
+  .mv-svg { width: 100%; max-width: 300px; margin: 0 auto; }
   .add-row { flex-wrap: nowrap; }
   .add-row .btn { flex: 1 1 0; padding: 8px 4px; font-size: 13px; white-space: nowrap; gap: 4px; }
   .add-row .btn .ic { width: 16px; height: 16px; }
