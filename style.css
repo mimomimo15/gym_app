@@ -91,7 +91,7 @@ select.auto { width: auto; max-width: 100%; }
 /* iOS : le champ date a une largeur minimale propre et déborde sans ces règles */
 input[type="date"] { -webkit-appearance: none; appearance: none; display: block; min-width: 0; max-width: 100%; text-align: left; }
 input[type="date"]::-webkit-date-and-time-value { text-align: left; margin: 0; }
-.grid2 > div, .ex-head > input, .set-row > input { min-width: 0; }
+.grid2 > div, .ex-head > .ex-name, .set-row > input { min-width: 0; }
 .grid2 { display: grid; grid-template-columns: 176px 1fr; gap: 12px; }
 
 /* ---------- cartes ---------- */
@@ -146,10 +146,14 @@ ol.steps b, ol.steps .ui { color: var(--text); }
 /* ---------- éditeur ---------- */
 .ex { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-top: 12px; background: var(--bg); min-width: 0; max-width: 100%; }
 .ex > .tag { margin-bottom: 8px; }
-.ex-head { display: flex; gap: 4px; align-items: center; }
-.ex-head input { font-weight: 500; }
+.ex-head { display: flex; gap: 4px; align-items: flex-start; }
+.ex-head .ex-name { font-weight: 500; }
 .ex-detail, .ex-note { margin-top: 8px; }
-textarea.ex-note { min-height: 40px; resize: none; overflow: hidden; line-height: 22px; }
+textarea.ex-note, textarea.ex-name { min-height: 40px; resize: none; overflow: hidden; line-height: 22px; }
+/* Suggestions de noms déjà utilisés */
+.suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.suggest button { appearance: none; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-size: 14px; line-height: 20px; padding: 6px 10px; border-radius: 16px; cursor: pointer; max-width: 100%; text-align: left; }
+.suggest button:hover { border-color: var(--line-strong); }
 .hint { font-family: var(--mono); font-size: 12px; line-height: 16px; color: var(--muted); margin-top: 8px; min-height: 16px; }
 
 /* Animation « comment faire » d'un exercice (moves.js) */

@@ -102,9 +102,6 @@
       <button class="btn danger hidden" id="btn-delete" type="button">Supprimer</button>
     </div>
     <datalist id="dl-names"></datalist>
-    <datalist id="dl-ex"></datalist>
-    <datalist id="dl-warmup"></datalist>
-    <datalist id="dl-stretch"></datalist>
   </section>
 </div>
 
@@ -142,10 +139,11 @@ function renderSync() {
 
 /* Types d'éléments d'une séance. Seuls les exercices ont des sets et comptent dans les stats. */
 const TYPES = {
-  ex: { label: 'Exercice', ph: 'Nom de l\'exercice', list: 'dl-ex' },
-  warmup: { label: 'Échauffement', ph: 'Nom de l\'échauffement', list: 'dl-warmup' },
-  stretch: { label: 'Étirement', ph: 'Nom de l\'étirement', list: 'dl-stretch' }
+  ex: { label: 'Exercice', ph: 'Nom de l\'exercice' },
+  warmup: { label: 'Échauffement', ph: 'Nom de l\'échauffement' },
+  stretch: { label: 'Étirement', ph: 'Nom de l\'étirement' }
 };
+const SUGG = { ex: [], warmup: [], stretch: [] };   // noms déjà utilisés, proposés pendant la saisie
 const isEx = ex => !ex.type || ex.type === 'ex';
 const openGroups = new Set();   // groupes dont l'historique est déplié
 
@@ -210,12 +208,12 @@ function openEditor(w, asCopy) {
   $('ed-date').value = draft.date; $('ed-name').value = draft.name; $('ed-note').value = draft.note; $('ed-err').textContent = '';
   $('btn-delete').classList.toggle('hidden', !draft.id); disarm();
   const hist = JG.history();
-  $('dl-ex').innerHTML = Array.from(hist.values()).sort((a, b) => b.sessions.length - a.sessions.length).map(h => '<option value="' + esc(h.name) + '">').join('');
+  SUGG.ex = Array.from(hist.values()).sort((a, b) => b.sessions.length - a.sessions.length).map(h => h.name);
   $('dl-names').innerHTML = Array.from(new Set(JG.workouts().map(x => x.name))).map(n => '<option value="' + esc(n) + '">').join('');
   ['warmup', 'stretch'].forEach(t => {
     const names = new Set();
     JG.workouts().forEach(x => x.exercises.forEach(ex => { if (ex.type === t && ex.name) names.add(ex.name); }));
-    $('dl-' + t).innerHTML = Array.from(names).map(n => '<option value="' + esc(n) + '">').join('');
+    SUGG[t] = Array.from(names);
   });
   renderExercises();
   render();
@@ -341,9 +339,10 @@ function renderExercises() {
     const t = TYPES[ex.type] || TYPES.ex;
     const head = '<div class="ex ' + esc(ex.type) + '" data-i="' + i + '">' +
       (isEx(ex) ? '' : '<div class="tag">' + t.label + '</div>') +
-      '<div class="ex-head"><input class="ex-name" type="text" list="' + t.list + '" autocomplete="off" placeholder="' + esc(t.ph) + '" aria-label="Nom" value="' + esc(ex.name) + '">' +
+      '<div class="ex-head"><textarea class="ex-name" rows="1" enterkeyhint="done" autocomplete="off" placeholder="' + esc(t.ph) + '" aria-label="Nom" aria-autocomplete="list">' + esc(ex.name) + '</textarea>' +
       demoBtnHTML(ex) +
-      '<button class="icon" data-act="del-ex" type="button" title="Retirer" aria-label="Retirer">' + JG.icon('x') + '</button></div>';
+      '<button class="icon" data-act="del-ex" type="button" title="Retirer" aria-label="Retirer">' + JG.icon('x') + '</button></div>' +
+      '<div class="suggest hidden" role="listbox" aria-label="Noms déjà utilisés"></div>';
     const mv = ex._demo && JGMoves.find(ex.name);
     const slot = '<div class="demo-slot" data-mv="' + (mv || '') + '">' + (mv ? JGMoves.panel(mv) : '') + '</div>';
     // Zone de texte qui s'agrandit avec le contenu : la note reste lisible en entier sur téléphone
@@ -358,16 +357,39 @@ function renderExercises() {
       '<button class="btn small add-set" data-act="add-set" type="button">' + JG.icon('plus') + 'Set</button>' +
     '</div>';
   }).join('');
-  requestAnimationFrame(() => document.querySelectorAll('#ed-ex .ex-note').forEach(fitNote));   // une fois l'éditeur affiché
+  requestAnimationFrame(fitAll);   // une fois l'éditeur affiché
   JGMoves.start();
 }
+// Nom et note : zones de texte qui s'agrandissent avec le contenu, pour rester lisibles en entier sur téléphone
 function fitNote(t) { t.style.height = 'auto'; if (t.scrollHeight) t.style.height = (t.scrollHeight + 2) + 'px'; }
-window.addEventListener('resize', () => document.querySelectorAll('#ed-ex .ex-note').forEach(fitNote));
+function fitAll() { document.querySelectorAll('#ed-ex .ex-note, #ed-ex .ex-name').forEach(fitNote); }
+window.addEventListener('resize', fitAll);
+
+/* Suggestions de noms (remplacent la liste du navigateur, qui ne marche pas sur une zone de texte) :
+   les noms déjà utilisés qui contiennent ce qu'on tape, sans tenir compte des accents ni des majuscules. */
+function showSuggest(exEl, ex) {
+  const box = exEl.querySelector('.suggest'); if (!box) return;
+  const q = JGMoves._norm(ex.name), list = SUGG[ex.type] || SUGG.ex;
+  const hits = list.filter(n => { const k = JGMoves._norm(n); return k !== q && (!q || k.includes(q)); }).slice(0, 5);
+  box.innerHTML = hits.map(n => '<button type="button" role="option" data-act="pick" data-name="' + esc(n) + '">' + esc(n) + '</button>').join('');
+  box.classList.toggle('hidden', !hits.length);
+}
+function hideSuggest(exEl) { const box = exEl && exEl.querySelector('.suggest'); if (box) box.classList.add('hidden'); }
+$('ed-ex').addEventListener('focusin', e => { if (e.target.classList.contains('ex-name')) { const exEl = e.target.closest('.ex'); showSuggest(exEl, draft.exercises[+exEl.dataset.i]); } });
+$('ed-ex').addEventListener('focusout', e => { if (e.target.classList.contains('ex-name')) hideSuggest(e.target.closest('.ex')); });
+// Toucher une suggestion ne doit pas faire perdre le focus avant le clic
+$('ed-ex').addEventListener('pointerdown', e => { if (e.target.closest('[data-act="pick"]')) e.preventDefault(); });
+$('ed-ex').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList.contains('ex-name')) { e.preventDefault(); e.target.blur(); } });
+
+function nameChanged(exEl, ex) { const h = exEl.querySelector('.hint'); if (h) h.textContent = hintFor(ex.name); refreshDemo(exEl, ex); }
 
 $('ed-ex').addEventListener('input', e => {
   const exEl = e.target.closest('.ex'); if (!exEl) return;
   const ex = draft.exercises[+exEl.dataset.i];
-  if (e.target.classList.contains('ex-name')) { ex.name = e.target.value; const h = exEl.querySelector('.hint'); if (h) h.textContent = hintFor(ex.name); refreshDemo(exEl, ex); return; }
+  if (e.target.classList.contains('ex-name')) {
+    if (/\n/.test(e.target.value)) e.target.value = e.target.value.replace(/\s*\n\s*/g, ' ');   // un nom tient sur une « ligne » (collé avec retours)
+    ex.name = e.target.value; fitNote(e.target); nameChanged(exEl, ex); showSuggest(exEl, ex); return;
+  }
   if (e.target.classList.contains('ex-detail')) { ex.detail = e.target.value; return; }
   if (e.target.classList.contains('ex-note')) { ex.note = e.target.value; fitNote(e.target); return; }
   const row = e.target.closest('.set-row'); if (!row) return;
@@ -380,7 +402,10 @@ $('ed-ex').addEventListener('input', e => {
 $('ed-ex').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const exEl = b.closest('.ex'), i = +exEl.dataset.i, ex = draft.exercises[i];
-  if (b.dataset.act === 'demo') {
+  if (b.dataset.act === 'pick') {
+    const t = exEl.querySelector('.ex-name'); ex.name = t.value = b.dataset.name;
+    fitNote(t); nameChanged(exEl, ex); hideSuggest(exEl); t.blur();
+  } else if (b.dataset.act === 'demo') {
     ex._demo = !ex._demo; refreshDemo(exEl, ex);
   } else if (b.dataset.act === 'timer') {
     const j = +b.closest('.set-row').dataset.j;
